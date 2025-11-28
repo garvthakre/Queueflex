@@ -1,0 +1,115 @@
+ 
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.* 
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# Dependency directories
+node_modules/
+**/node_modules/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Byte-compiled
+*.pyo
+*.pyd
+
+ 
+# Build directories
+build/
+dist/
+public/build/
+functions/node_modules/
+
+# React / NextJS
+.cache/
+.npm/
+.npm-cache/
+.next/
+out/
+coverage/
+
+# Express
+*.pid
+pids/
+lib-cov/
+
+# MongoDB dumps
+dump/
+*.archive
+
+ 
+# Python packaging
+*.egg
+*.egg-info/
+dist/
+build/
+develop-eggs/
+.eggs/
+
+# PyInstaller
+*.spec
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff / linting
+.ruff_cache/
+
+# Uvicorn / Gunicorn
+*.pid
+ 
+
+# Ignore compose override files
+docker-compose.override.yml
+
+# Docker build artifacts
+*.tar
+*.img
+ 
+ 
+# JetBrains
+.idea/
+*.iml
+
+# Other editors
+*.swp
+*.swo
+*~
+ 
+# Nx / Turborepo
+.nx/
+turborepo/
+.turbo/
+turbo/
+ 
