@@ -13,16 +13,22 @@ const app = express();
 app.use(express.json());
 
 app.post('/signup', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, is_admin } = req.body;
   if (!email || !password) return res.status(400).json({ message: "Email and password required" });
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const adminFlag = is_admin ? 1 : 0; // Convert boolean to integer for SQLite
+  
   db.run(
-    `INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)`,
-    [name, email, passwordHash],
+    `INSERT INTO users (name, email, password_hash, is_admin) VALUES (?, ?, ?, ?)`,
+    [name, email, passwordHash, adminFlag],
     function(err) {
       if (err) return res.status(400).json({ message: "Email already registered" });
-      res.json({ user_id: this.lastID, message: "User registered successfully" });
+      res.json({ 
+        user_id: this.lastID, 
+        message: "User registered successfully",
+        is_admin: !!is_admin 
+      });
     }
   );
 });
