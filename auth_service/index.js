@@ -1,10 +1,13 @@
+require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
 
-const SECRET_KEY = process.env.JWT_SECRET_KEY || "default_secret_key";
+const SECRET_KEY = process.env.JWT_SECRET_KEY || "my_super_secret_key_12345";
 const TOKEN_EXPIRATION_HOURS = process.env.TOKEN_EXPIRATION_HOURS || 24;
+
+console.log(`[AUTH REST] JWT Secret: ${SECRET_KEY}`);
 
 const app = express();
 app.use(express.json());
@@ -37,8 +40,10 @@ app.post('/login', (req, res) => {
       SECRET_KEY,
       { expiresIn: `${TOKEN_EXPIRATION_HOURS}h` }
     );
+    
+    console.log(`[AUTH REST] ✓ Login: User ${row.id}, Admin: ${!!row.is_admin}`);
     res.json({ token, admin: !!row.is_admin });
   });
 });
 
-app.listen(3000, () => console.log("Auth REST running on port 3000"));
+app.listen(3000, () => console.log("[AUTH REST] Running on port 3000"));
