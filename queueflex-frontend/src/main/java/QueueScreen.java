@@ -3,13 +3,16 @@ import javafx.geometry.*;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.*;
 import javafx.stage.Stage;
 import org.json.*;
 
 public class QueueScreen {
     private Stage stage;
     private ApiClient apiClient;
-    private TextArea queueListArea;
+    private VBox servicesBox;
+    private VBox myQueuesBox;
     
     public QueueScreen(Stage stage, ApiClient apiClient) {
         this.stage = stage;
@@ -17,140 +20,421 @@ public class QueueScreen {
     }
     
     public void show() {
-        BorderPane layout = new BorderPane();
-        layout.setPadding(new Insets(20));
+        BorderPane root = new BorderPane();
+        root.setStyle("-fx-background-color: #f5f7fa;");
         
-        // Top section - Title
-        Label titleLabel = new Label("Queue Management");
-        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-        BorderPane.setAlignment(titleLabel, Pos.CENTER);
-        layout.setTop(titleLabel);
+        // Top Navigation Bar
+        HBox navbar = createNavBar();
+        root.setTop(navbar);
         
-        // Center section - Queue list
-        VBox centerBox = new VBox(10);
-        centerBox.setPadding(new Insets(20, 0, 20, 0));
+        // Main Content - Tabs
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabPane.setStyle("-fx-background-color: transparent;");
         
-        Label listLabel = new Label("Your Queue Items:");
-        listLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        // Tab 1: Browse Services
+        Tab servicesTab = new Tab("🏥 Available Services");
+        ScrollPane servicesScroll = new ScrollPane();
+        servicesScroll.setFitToWidth(true);
+        servicesScroll.setStyle("-fx-background: #f5f7fa; -fx-background-color: transparent;");
         
-        queueListArea = new TextArea();
-        queueListArea.setEditable(false);
-        queueListArea.setPrefRowCount(15);
+        VBox servicesContainer = new VBox(20);
+        servicesContainer.setPadding(new Insets(30));
         
-        Button refreshButton = new Button("Refresh Queue");
-        refreshButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
-        refreshButton.setOnAction(e -> loadQueue());
+        HBox servicesHeader = new HBox(20);
+        servicesHeader.setAlignment(Pos.CENTER_LEFT);
         
-        centerBox.getChildren().addAll(listLabel, queueListArea, refreshButton);
-        layout.setCenter(centerBox);
+        Label servicesTitle = new Label("Browse Available Services");
+        servicesTitle.setFont(Font.font("System", FontWeight.BOLD, 24));
+        servicesTitle.setTextFill(Color.web("#2c3e50"));
         
-        // Bottom section - Add to queue
-        VBox bottomBox = new VBox(10);
-        bottomBox.setPadding(new Insets(10));
-        bottomBox.setStyle("-fx-border-color: #cccccc; -fx-border-width: 1;");
+        Button refreshServicesBtn = new Button("🔄 Refresh");
+        refreshServicesBtn.setStyle("-fx-background-color: #667eea; -fx-text-fill: white; " +
+                                   "-fx-background-radius: 8; -fx-padding: 10 20; " +
+                                   "-fx-font-weight: bold; -fx-cursor: hand;");
+        refreshServicesBtn.setOnAction(e -> loadServices());
         
-        Label addLabel = new Label("Add to Queue:");
-        addLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        servicesHeader.getChildren().addAll(servicesTitle, refreshServicesBtn);
         
-        GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(10);
+        servicesBox = new VBox(15);
         
-        TextField nameField = new TextField();
-        nameField.setPromptText("Name");
+        servicesContainer.getChildren().addAll(servicesHeader, servicesBox);
+        servicesScroll.setContent(servicesContainer);
+        servicesTab.setContent(servicesScroll);
         
-        TextField purposeField = new TextField();
-        purposeField.setPromptText("Purpose");
+        // Tab 2: My Queue Bookings
+        Tab myQueuesTab = new Tab("📋 My Bookings");
+        ScrollPane myQueuesScroll = new ScrollPane();
+        myQueuesScroll.setFitToWidth(true);
+        myQueuesScroll.setStyle("-fx-background: #f5f7fa; -fx-background-color: transparent;");
         
-        ComboBox<String> serviceTypeBox = new ComboBox<>();
-        serviceTypeBox.getItems().addAll("General", "Premium", "VIP");
-        serviceTypeBox.setValue("General");
+        VBox myQueuesContainer = new VBox(20);
+        myQueuesContainer.setPadding(new Insets(30));
         
-        form.add(new Label("Name:"), 0, 0);
-        form.add(nameField, 1, 0);
-        form.add(new Label("Purpose:"), 0, 1);
-        form.add(purposeField, 1, 1);
-        form.add(new Label("Service Type:"), 0, 2);
-        form.add(serviceTypeBox, 1, 2);
+        HBox myQueuesHeader = new HBox(20);
+        myQueuesHeader.setAlignment(Pos.CENTER_LEFT);
         
-        Button addButton = new Button("Add to Queue");
-        addButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+        Label myQueuesTitle = new Label("My Queue Bookings");
+        myQueuesTitle.setFont(Font.font("System", FontWeight.BOLD, 24));
+        myQueuesTitle.setTextFill(Color.web("#2c3e50"));
         
-        Label messageLabel = new Label();
+        Button refreshMyQueuesBtn = new Button("🔄 Refresh");
+        refreshMyQueuesBtn.setStyle("-fx-background-color: #667eea; -fx-text-fill: white; " +
+                                   "-fx-background-radius: 8; -fx-padding: 10 20; " +
+                                   "-fx-font-weight: bold; -fx-cursor: hand;");
+        refreshMyQueuesBtn.setOnAction(e -> loadMyQueues());
         
-        addButton.setOnAction(e -> {
-            String name = nameField.getText();
-            String purpose = purposeField.getText();
-            String serviceType = serviceTypeBox.getValue();
-            
-            if (name.isEmpty()) {
-                messageLabel.setStyle("-fx-text-fill: red;");
-                messageLabel.setText("Name is required!");
-                return;
-            }
-            
-            try {
-                apiClient.addToQueue(name, purpose, serviceType);
-                messageLabel.setStyle("-fx-text-fill: green;");
-                messageLabel.setText("Added to queue successfully!");
-                
-                // Clear fields
-                nameField.clear();
-                purposeField.clear();
-                serviceTypeBox.setValue("General");
-                
-                // Refresh list
-                loadQueue();
-                
-            } catch (Exception ex) {
-                messageLabel.setStyle("-fx-text-fill: red;");
-                messageLabel.setText("Error: " + ex.getMessage());
-            }
-        });
+        myQueuesHeader.getChildren().addAll(myQueuesTitle, refreshMyQueuesBtn);
         
-        Button logoutButton = new Button("Logout");
-        logoutButton.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
-        logoutButton.setOnAction(e -> {
+        myQueuesBox = new VBox(15);
+        
+        myQueuesContainer.getChildren().addAll(myQueuesHeader, myQueuesBox);
+        myQueuesScroll.setContent(myQueuesContainer);
+        myQueuesTab.setContent(myQueuesScroll);
+        
+        tabPane.getTabs().addAll(servicesTab, myQueuesTab);
+        root.setCenter(tabPane);
+        
+        Scene scene = new Scene(root, 1100, 750);
+        stage.setScene(scene);
+        stage.show();
+        
+        loadServices();
+        loadMyQueues();
+    }
+    
+    private HBox createNavBar() {
+        HBox navbar = new HBox();
+        navbar.setPadding(new Insets(15, 30, 15, 30));
+        navbar.setStyle("-fx-background-color: white; " +
+                       "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);");
+        navbar.setAlignment(Pos.CENTER_LEFT);
+        navbar.setSpacing(20);
+        
+        Label logo = new Label("🎫 QueueFlex");
+        logo.setFont(Font.font("System", FontWeight.BOLD, 20));
+        logo.setTextFill(Color.web("#667eea"));
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label userLabel = new Label("👤 User Dashboard");
+        userLabel.setFont(Font.font(14));
+        userLabel.setTextFill(Color.web("#555"));
+        
+        Button logoutBtn = new Button("Logout");
+        logoutBtn.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; " +
+                          "-fx-background-radius: 8; -fx-padding: 8 20; " +
+                          "-fx-cursor: hand; -fx-font-weight: bold;");
+        logoutBtn.setOnAction(e -> {
             LoginScreen loginScreen = new LoginScreen(stage);
             loginScreen.show();
         });
         
-        bottomBox.getChildren().addAll(addLabel, form, addButton, messageLabel, logoutButton);
-        layout.setBottom(bottomBox);
-        
-        Scene scene = new Scene(layout, 600, 650);
-        stage.setScene(scene);
-        stage.show();
-        
-        // Load queue on start
-        loadQueue();
+        navbar.getChildren().addAll(logo, spacer, userLabel, logoutBtn);
+        return navbar;
     }
     
-    private void loadQueue() {
+    private void loadServices() {
+        servicesBox.getChildren().clear();
+        
+        try {
+            String response = apiClient.getServices();
+            JSONArray servicesArray = new JSONArray(response);
+            
+            if (servicesArray.length() == 0) {
+                Label emptyLabel = new Label("No services available at this time");
+                emptyLabel.setFont(Font.font(14));
+                emptyLabel.setTextFill(Color.web("#999"));
+                emptyLabel.setPadding(new Insets(40));
+                servicesBox.getChildren().add(emptyLabel);
+                return;
+            }
+            
+            for (int i = 0; i < servicesArray.length(); i++) {
+                JSONObject service = servicesArray.getJSONObject(i);
+                VBox serviceCard = createServiceCard(service);
+                servicesBox.getChildren().add(serviceCard);
+            }
+            
+        } catch (Exception ex) {
+            Label errorLabel = new Label("Error loading services: " + ex.getMessage());
+            errorLabel.setTextFill(Color.web("#f44336"));
+            servicesBox.getChildren().add(errorLabel);
+        }
+    }
+    
+    private VBox createServiceCard(JSONObject service) {
+        VBox card = new VBox(15);
+        card.setPadding(new Insets(20));
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; " +
+                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);");
+        
+        // Header
+        HBox header = new HBox(15);
+        header.setAlignment(Pos.CENTER_LEFT);
+        
+        Label nameLabel = new Label(service.optString("name", "Unknown Service"));
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        nameLabel.setTextFill(Color.web("#2c3e50"));
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label categoryLabel = new Label(service.optString("category", "General"));
+        categoryLabel.setPadding(new Insets(5, 12, 5, 12));
+        categoryLabel.setStyle("-fx-background-radius: 12; -fx-font-size: 11; " +
+                              "-fx-font-weight: bold; " +
+                              "-fx-background-color: #e3f2fd; -fx-text-fill: #1976d2;");
+        
+        header.getChildren().addAll(nameLabel, spacer, categoryLabel);
+        
+        // Description
+        Label descLabel = new Label(service.optString("description", ""));
+        descLabel.setFont(Font.font(13));
+        descLabel.setTextFill(Color.web("#666"));
+        descLabel.setWrapText(true);
+        
+        // Details
+        GridPane details = new GridPane();
+        details.setHgap(30);
+        details.setVgap(8);
+        
+        int maxCapacity = service.optInt("max_capacity", 50);
+        int estimatedTime = service.optInt("estimated_time_per_person", 15);
+        int currentQueue = service.optInt("current_queue_count", 0);
+        
+        details.add(createDetailLabel("⏱️ Est. Time:", estimatedTime + " min/person"), 0, 0);
+        details.add(createDetailLabel("👥 Capacity:", currentQueue + "/" + maxCapacity), 1, 0);
+        
+        // Progress bar for queue
+        ProgressBar progressBar = new ProgressBar((double) currentQueue / maxCapacity);
+        progressBar.setPrefWidth(200);
+        progressBar.setStyle("-fx-accent: " + (currentQueue >= maxCapacity ? "#f44336" : "#4caf50") + ";");
+        
+        HBox progressBox = new HBox(10);
+        progressBox.setAlignment(Pos.CENTER_LEFT);
+        Label progressLabel = new Label(currentQueue >= maxCapacity ? "Full" : "Available");
+        progressLabel.setFont(Font.font("System", FontWeight.BOLD, 11));
+        progressLabel.setTextFill(Color.web(currentQueue >= maxCapacity ? "#f44336" : "#4caf50"));
+        progressBox.getChildren().addAll(progressBar, progressLabel);
+        
+        // Book button
+        Button bookBtn = new Button("📝 Book Queue");
+        bookBtn.setStyle("-fx-background-color: #4caf50; -fx-text-fill: white; " +
+                        "-fx-background-radius: 8; -fx-padding: 10 20; " +
+                        "-fx-cursor: hand; -fx-font-weight: bold;");
+        bookBtn.setDisable(currentQueue >= maxCapacity);
+        bookBtn.setOnAction(e -> showBookingDialog(service));
+        
+        HBox actionBox = new HBox(10);
+        actionBox.setAlignment(Pos.CENTER_RIGHT);
+        actionBox.getChildren().add(bookBtn);
+        
+        card.getChildren().addAll(header, new Separator(), descLabel, details, progressBox, actionBox);
+        return card;
+    }
+    
+    private HBox createDetailLabel(String label, String value) {
+        HBox box = new HBox(8);
+        box.setAlignment(Pos.CENTER_LEFT);
+        
+        Label lblLabel = new Label(label);
+        lblLabel.setFont(Font.font(12));
+        lblLabel.setTextFill(Color.web("#7f8c8d"));
+        
+        Label valLabel = new Label(value);
+        valLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
+        valLabel.setTextFill(Color.web("#2c3e50"));
+        
+        box.getChildren().addAll(lblLabel, valLabel);
+        return box;
+    }
+    
+    private void showBookingDialog(JSONObject service) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Book Queue");
+        dialog.setHeaderText("Book a queue for: " + service.optString("name"));
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        TextField nameField = new TextField();
+        nameField.setPromptText("Your Name");
+        nameField.setPrefWidth(300);
+        
+        TextArea purposeField = new TextArea();
+        purposeField.setPromptText("Purpose of visit (optional)");
+        purposeField.setPrefRowCount(3);
+        purposeField.setPrefWidth(300);
+        
+        content.getChildren().addAll(
+            new Label("Name:"),
+            nameField,
+            new Label("Purpose:"),
+            purposeField
+        );
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                String name = nameField.getText();
+                String purpose = purposeField.getText();
+                String serviceId = service.optString("service_id");
+                
+                if (name.isEmpty()) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setContentText("Name is required!");
+                    alert.showAndWait();
+                    return;
+                }
+                
+                try {
+                    apiClient.addToQueue(name, purpose, serviceId);
+                    
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Success");
+                    alert.setHeaderText("Queue Booked!");
+                    alert.setContentText("You have successfully booked a queue for " + service.optString("name"));
+                    alert.showAndWait();
+                    
+                    loadServices();
+                    loadMyQueues();
+                    
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setContentText("Error: " + ex.getMessage());
+                    alert.showAndWait();
+                }
+            }
+        });
+    }
+    
+    private void loadMyQueues() {
+        myQueuesBox.getChildren().clear();
+        
         try {
             String response = apiClient.getQueue();
             JSONArray queueArray = new JSONArray(response);
             
-            StringBuilder sb = new StringBuilder();
+            if (queueArray.length() == 0) {
+                Label emptyLabel = new Label("You have no queue bookings");
+                emptyLabel.setFont(Font.font(14));
+                emptyLabel.setTextFill(Color.web("#999"));
+                emptyLabel.setPadding(new Insets(40));
+                myQueuesBox.getChildren().add(emptyLabel);
+                return;
+            }
+            
             for (int i = 0; i < queueArray.length(); i++) {
                 JSONObject item = queueArray.getJSONObject(i);
-                sb.append("═══════════════════════════════════\n");
-                sb.append("Queue ID: ").append(item.optString("queue_id", "N/A")).append("\n");
-                sb.append("Name: ").append(item.optString("name", "N/A")).append("\n");
-                sb.append("Purpose: ").append(item.optString("purpose", "N/A")).append("\n");
-                sb.append("Service Type: ").append(item.optString("serviceType", "N/A")).append("\n");
-                sb.append("Position: ").append(item.optInt("position", 0)).append("\n");
-                sb.append("Status: ").append(item.optString("status", "N/A")).append("\n");
+                VBox queueCard = createMyQueueCard(item);
+                myQueuesBox.getChildren().add(queueCard);
             }
-            
-            if (queueArray.length() == 0) {
-                sb.append("No items in queue.");
-            }
-            
-            queueListArea.setText(sb.toString());
             
         } catch (Exception ex) {
-            queueListArea.setText("Error loading queue: " + ex.getMessage());
+            Label errorLabel = new Label("Error loading queues: " + ex.getMessage());
+            errorLabel.setTextFill(Color.web("#f44336"));
+            myQueuesBox.getChildren().add(errorLabel);
         }
+    }
+    
+    private VBox createMyQueueCard(JSONObject item) {
+        VBox card = new VBox(15);
+        card.setPadding(new Insets(20));
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
+                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);");
+        
+        HBox header = new HBox(15);
+        header.setAlignment(Pos.CENTER_LEFT);
+        
+        Label serviceLabel = new Label(item.optString("serviceType", "General"));
+        serviceLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        serviceLabel.setTextFill(Color.web("#2c3e50"));
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        String status = item.optString("status", "waiting");
+        Label statusLabel = new Label(status.toUpperCase());
+        statusLabel.setPadding(new Insets(5, 12, 5, 12));
+        statusLabel.setStyle("-fx-background-radius: 12; -fx-font-size: 11; " +
+                            "-fx-font-weight: bold; " + getStatusStyle(status));
+        
+        header.getChildren().addAll(serviceLabel, spacer, statusLabel);
+        
+        GridPane details = new GridPane();
+        details.setHgap(25);
+        details.setVgap(10);
+        
+        details.add(createDetailLabel("👤 Name:", item.optString("name", "N/A")), 0, 0);
+        details.add(createDetailLabel("📍 Position:", "#" + item.optInt("position", 0)), 1, 0);
+        details.add(createDetailLabel("📝 Purpose:", item.optString("purpose", "N/A")), 0, 1, 2, 1);
+        
+        HBox actions = new HBox(10);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        
+        String queueId = item.optString("queue_id", "");
+        
+        Button deleteBtn = new Button("Cancel Booking");
+        deleteBtn.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; " +
+                          "-fx-background-radius: 8; -fx-padding: 8 16; " +
+                          "-fx-cursor: hand; -fx-font-weight: bold;");
+        deleteBtn.setOnAction(e -> deleteMyQueue(queueId));
+        
+        actions.getChildren().add(deleteBtn);
+        
+        card.getChildren().addAll(header, new Separator(), details, actions);
+        
+        return card;
+    }
+    
+    private String getStatusStyle(String status) {
+        switch (status.toLowerCase()) {
+            case "waiting":
+                return "-fx-background-color: #fff3cd; -fx-text-fill: #856404;";
+            case "in-progress":
+                return "-fx-background-color: #cfe2ff; -fx-text-fill: #084298;";
+            case "completed":
+                return "-fx-background-color: #d1e7dd; -fx-text-fill: #0f5132;";
+            case "cancelled":
+                return "-fx-background-color: #f8d7da; -fx-text-fill: #842029;";
+            default:
+                return "-fx-background-color: #e2e3e5; -fx-text-fill: #41464b;";
+        }
+    }
+    
+    private void deleteMyQueue(String queueId) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Cancellation");
+        confirm.setHeaderText("Cancel Queue Booking");
+        confirm.setContentText("Are you sure you want to cancel this booking?");
+        
+        confirm.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                try {
+                    apiClient.deleteQueue(queueId);
+                    
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Success");
+                    alert.setHeaderText("Booking Cancelled");
+                    alert.setContentText("Your queue booking has been cancelled successfully!");
+                    alert.showAndWait();
+                    
+                    loadServices();
+                    loadMyQueues();
+                    
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setContentText("Error: " + ex.getMessage());
+                    alert.showAndWait();
+                }
+            }
+        });
     }
 }

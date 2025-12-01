@@ -61,8 +61,93 @@ public class ApiClient {
         return false;
     }
     
-    // Add to queue
-    public String addToQueue(String name, String purpose, String serviceType) throws Exception {
+    // ==========================================
+    // SERVICE ENDPOINTS
+    // ==========================================
+    
+    // Get all available services (public)
+    public String getServices() throws Exception {
+        URL url = new URL(QUEUE_URL + "/services");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        
+        return readResponse(conn);
+    }
+    
+    // Get specific service
+    public String getServiceById(String serviceId) throws Exception {
+        URL url = new URL(QUEUE_URL + "/services/" + serviceId);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        
+        return readResponse(conn);
+    }
+    
+    // Admin: Create service
+    public String createService(String name, String description, String category, int maxCapacity, int estimatedTime) throws Exception {
+        URL url = new URL(ADMIN_URL + "/admin/services");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        conn.setDoOutput(true);
+        
+        JSONObject json = new JSONObject();
+        json.put("name", name);
+        json.put("description", description);
+        json.put("category", category);
+        json.put("max_capacity", maxCapacity);
+        json.put("estimated_time_per_person", estimatedTime);
+        
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(json.toString().getBytes());
+            os.flush();
+        }
+        
+        return readResponse(conn);
+    }
+    
+    // Admin: Update service
+    public String updateService(String serviceId, String name, String description, String category, String status) throws Exception {
+        URL url = new URL(ADMIN_URL + "/admin/services/" + serviceId);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("PUT");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        conn.setDoOutput(true);
+        
+        JSONObject json = new JSONObject();
+        if (name != null) json.put("name", name);
+        if (description != null) json.put("description", description);
+        if (category != null) json.put("category", category);
+        if (status != null) json.put("status", status);
+        
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(json.toString().getBytes());
+            os.flush();
+        }
+        
+        return readResponse(conn);
+    }
+    
+    // Admin: Delete service
+    public String deleteService(String serviceId) throws Exception {
+        URL url = new URL(ADMIN_URL + "/admin/services/" + serviceId);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("DELETE");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        
+        return readResponse(conn);
+    }
+    
+    // ==========================================
+    // QUEUE ENDPOINTS
+    // ==========================================
+    
+    // Add to queue with service
+    public String addToQueue(String name, String purpose, String serviceId) throws Exception {
         URL url = new URL(QUEUE_URL + "/queue/add");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
@@ -73,7 +158,7 @@ public class ApiClient {
         JSONObject json = new JSONObject();
         json.put("name", name);
         json.put("purpose", purpose);
-        json.put("serviceType", serviceType);
+        json.put("service_id", serviceId);
         
         try (OutputStream os = conn.getOutputStream()) {
             os.write(json.toString().getBytes());
@@ -93,8 +178,18 @@ public class ApiClient {
         return readResponse(conn);
     }
     
+    // Get queue for specific service
+    public String getQueueByService(String serviceId) throws Exception {
+        URL url = new URL(QUEUE_URL + "/queue/service/" + serviceId);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        
+        return readResponse(conn);
+    }
+    
     // Update queue item
-    public String updateQueue(String queueId, String name, String purpose, String serviceType) throws Exception {
+    public String updateQueue(String queueId, String name, String purpose) throws Exception {
         URL url = new URL(QUEUE_URL + "/queue/update/" + queueId);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("PUT");
@@ -105,7 +200,6 @@ public class ApiClient {
         JSONObject json = new JSONObject();
         json.put("name", name);
         json.put("purpose", purpose);
-        json.put("serviceType", serviceType);
         
         try (OutputStream os = conn.getOutputStream()) {
             os.write(json.toString().getBytes());

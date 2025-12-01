@@ -12,6 +12,7 @@ public class AdminScreen {
     private Stage stage;
     private ApiClient apiClient;
     private VBox allQueuesBox;
+    private VBox servicesBox;
     private GridPane statsGrid;
     
     public AdminScreen(Stage stage, ApiClient apiClient) {
@@ -33,6 +34,27 @@ public class AdminScreen {
         tabPane.setStyle("-fx-background-color: transparent;");
         
         // Tab 1: Dashboard
+        Tab dashboardTab = createDashboardTab();
+        
+        // Tab 2: Service Management
+        Tab servicesTab = createServicesTab();
+        
+        // Tab 3: All Queues
+        Tab queuesTab = createQueuesTab();
+        
+        tabPane.getTabs().addAll(dashboardTab, servicesTab, queuesTab);
+        root.setCenter(tabPane);
+        
+        Scene scene = new Scene(root, 1200, 800);
+        stage.setScene(scene);
+        stage.show();
+        
+        loadAllQueues();
+        loadStatistics();
+        loadServices();
+    }
+    
+    private Tab createDashboardTab() {
         Tab dashboardTab = new Tab("📊 Dashboard");
         ScrollPane dashScroll = new ScrollPane();
         dashScroll.setFitToWidth(true);
@@ -55,7 +77,52 @@ public class AdminScreen {
         dashScroll.setContent(dashContainer);
         dashboardTab.setContent(dashScroll);
         
-        // Tab 2: All Queues
+        return dashboardTab;
+    }
+    
+    private Tab createServicesTab() {
+        Tab servicesTab = new Tab("🏥 Service Management");
+        ScrollPane servicesScroll = new ScrollPane();
+        servicesScroll.setFitToWidth(true);
+        servicesScroll.setStyle("-fx-background: #f5f7fa; -fx-background-color: transparent;");
+        
+        VBox servicesContainer = new VBox(20);
+        servicesContainer.setPadding(new Insets(30));
+        
+        HBox servicesHeader = new HBox(20);
+        servicesHeader.setAlignment(Pos.CENTER_LEFT);
+        
+        Label servicesTitle = new Label("Manage Services");
+        servicesTitle.setFont(Font.font("System", FontWeight.BOLD, 24));
+        servicesTitle.setTextFill(Color.web("#2c3e50"));
+        
+        Button createServiceBtn = new Button("➕ Create Service");
+        createServiceBtn.setStyle("-fx-background-color: #4caf50; -fx-text-fill: white; " +
+                                 "-fx-background-radius: 8; -fx-padding: 10 20; " +
+                                 "-fx-font-weight: bold; -fx-cursor: hand;");
+        createServiceBtn.setOnAction(e -> showCreateServiceDialog());
+        
+        Button refreshBtn = new Button("🔄 Refresh");
+        refreshBtn.setStyle("-fx-background-color: #667eea; -fx-text-fill: white; " +
+                           "-fx-background-radius: 8; -fx-padding: 10 20; " +
+                           "-fx-font-weight: bold; -fx-cursor: hand;");
+        refreshBtn.setOnAction(e -> {
+            loadServices();
+            loadStatistics();
+        });
+        
+        servicesHeader.getChildren().addAll(servicesTitle, createServiceBtn, refreshBtn);
+        
+        servicesBox = new VBox(15);
+        
+        servicesContainer.getChildren().addAll(servicesHeader, servicesBox);
+        servicesScroll.setContent(servicesContainer);
+        servicesTab.setContent(servicesScroll);
+        
+        return servicesTab;
+    }
+    
+    private Tab createQueuesTab() {
         Tab queuesTab = new Tab("📋 All Bookings");
         ScrollPane queuesScroll = new ScrollPane();
         queuesScroll.setFitToWidth(true);
@@ -88,15 +155,7 @@ public class AdminScreen {
         queuesScroll.setContent(queuesContainer);
         queuesTab.setContent(queuesScroll);
         
-        tabPane.getTabs().addAll(dashboardTab, queuesTab);
-        root.setCenter(tabPane);
-        
-        Scene scene = new Scene(root, 1100, 750);
-        stage.setScene(scene);
-        stage.show();
-        
-        loadAllQueues();
-        loadStatistics();
+        return queuesTab;
     }
     
     private HBox createNavBar() {
@@ -130,6 +189,321 @@ public class AdminScreen {
         navbar.getChildren().addAll(logo, spacer, adminLabel, logoutBtn);
         return navbar;
     }
+    
+    // ==========================================
+    // SERVICE MANAGEMENT
+    // ==========================================
+    
+    private void showCreateServiceDialog() {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Create Service");
+        dialog.setHeaderText("Create a New Service");
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        TextField nameField = new TextField();
+        nameField.setPromptText("Service Name (e.g., City Hospital)");
+        nameField.setPrefWidth(400);
+        
+        TextArea descField = new TextArea();
+        descField.setPromptText("Description");
+        descField.setPrefRowCount(3);
+        descField.setPrefWidth(400);
+        
+        ComboBox<String> categoryBox = new ComboBox<>();
+        categoryBox.getItems().addAll("Hospital", "Clinic", "Government Office", 
+                                     "Bank", "Restaurant", "Salon", "Other");
+        categoryBox.setValue("Hospital");
+        categoryBox.setPrefWidth(400);
+        
+        Spinner<Integer> capacitySpinner = new Spinner<>(1, 500, 50);
+        capacitySpinner.setEditable(true);
+        capacitySpinner.setPrefWidth(400);
+        
+        Spinner<Integer> timeSpinner = new Spinner<>(5, 120, 15);
+        timeSpinner.setEditable(true);
+        timeSpinner.setPrefWidth(400);
+        
+        content.getChildren().addAll(
+            new Label("Service Name:"),
+            nameField,
+            new Label("Description:"),
+            descField,
+            new Label("Category:"),
+            categoryBox,
+            new Label("Max Queue Capacity:"),
+            capacitySpinner,
+            new Label("Estimated Time per Person (minutes):"),
+            timeSpinner
+        );
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                String name = nameField.getText();
+                String description = descField.getText();
+                String category = categoryBox.getValue();
+                int maxCapacity = capacitySpinner.getValue();
+                int estimatedTime = timeSpinner.getValue();
+                
+                if (name.isEmpty()) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setContentText("Service name is required!");
+                    alert.showAndWait();
+                    return;
+                }
+                
+                try {
+                    apiClient.createService(name, description, category, maxCapacity, estimatedTime);
+                    
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Success");
+                    alert.setHeaderText("Service Created");
+                    alert.setContentText("Service has been created successfully!");
+                    alert.showAndWait();
+                    
+                    loadServices();
+                    loadStatistics();
+                    
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setContentText("Error: " + ex.getMessage());
+                    alert.showAndWait();
+                }
+            }
+        });
+    }
+    
+    private void loadServices() {
+        servicesBox.getChildren().clear();
+        
+        try {
+            String response = apiClient.getServices();
+            JSONArray servicesArray = new JSONArray(response);
+            
+            if (servicesArray.length() == 0) {
+                Label emptyLabel = new Label("No services created yet. Click 'Create Service' to add one.");
+                emptyLabel.setFont(Font.font(14));
+                emptyLabel.setTextFill(Color.web("#999"));
+                emptyLabel.setPadding(new Insets(40));
+                servicesBox.getChildren().add(emptyLabel);
+                return;
+            }
+            
+            for (int i = 0; i < servicesArray.length(); i++) {
+                JSONObject service = servicesArray.getJSONObject(i);
+                VBox serviceCard = createServiceManagementCard(service);
+                servicesBox.getChildren().add(serviceCard);
+            }
+            
+        } catch (Exception ex) {
+            Label errorLabel = new Label("Error loading services: " + ex.getMessage());
+            errorLabel.setTextFill(Color.web("#f44336"));
+            servicesBox.getChildren().add(errorLabel);
+        }
+    }
+    
+    private VBox createServiceManagementCard(JSONObject service) {
+        VBox card = new VBox(15);
+        card.setPadding(new Insets(20));
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; " +
+                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);");
+        
+        // Header
+        HBox header = new HBox(15);
+        header.setAlignment(Pos.CENTER_LEFT);
+        
+        Label nameLabel = new Label(service.optString("name", "Unknown"));
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        nameLabel.setTextFill(Color.web("#2c3e50"));
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        String status = service.optString("status", "active");
+        Label statusLabel = new Label(status.toUpperCase());
+        statusLabel.setPadding(new Insets(5, 12, 5, 12));
+        statusLabel.setStyle("-fx-background-radius: 12; -fx-font-size: 11; " +
+                            "-fx-font-weight: bold; " + 
+                            (status.equals("active") ? 
+                             "-fx-background-color: #d1e7dd; -fx-text-fill: #0f5132;" : 
+                             "-fx-background-color: #f8d7da; -fx-text-fill: #842029;"));
+        
+        header.getChildren().addAll(nameLabel, spacer, statusLabel);
+        
+        // Description
+        if (!service.optString("description", "").isEmpty()) {
+            Label descLabel = new Label(service.optString("description"));
+            descLabel.setFont(Font.font(13));
+            descLabel.setTextFill(Color.web("#666"));
+            descLabel.setWrapText(true);
+            card.getChildren().add(descLabel);
+        }
+        
+        // Details
+        GridPane details = new GridPane();
+        details.setHgap(25);
+        details.setVgap(10);
+        
+        details.add(createDetailLabel("📁 Category:", service.optString("category", "General")), 0, 0);
+        details.add(createDetailLabel("👥 Max Capacity:", String.valueOf(service.optInt("max_capacity", 50))), 1, 0);
+        details.add(createDetailLabel("⏱️ Time/Person:", service.optInt("estimated_time_per_person", 15) + " min"), 0, 1);
+        details.add(createDetailLabel("🆔 ID:", service.optString("service_id", "N/A").substring(0, 13) + "..."), 1, 1);
+        
+        // Actions
+        HBox actions = new HBox(10);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        
+        String serviceId = service.optString("service_id", "");
+        
+        Button toggleStatusBtn = new Button(status.equals("active") ? "🔴 Deactivate" : "🟢 Activate");
+        toggleStatusBtn.setStyle("-fx-background-color: " + (status.equals("active") ? "#ff9800" : "#4caf50") + 
+                                "; -fx-text-fill: white; " +
+                                "-fx-background-radius: 8; -fx-padding: 8 16; " +
+                                "-fx-cursor: hand; -fx-font-weight: bold;");
+        toggleStatusBtn.setOnAction(e -> toggleServiceStatus(serviceId, status));
+        
+        Button editBtn = new Button("✏️ Edit");
+        editBtn.setStyle("-fx-background-color: #2196f3; -fx-text-fill: white; " +
+                        "-fx-background-radius: 8; -fx-padding: 8 16; " +
+                        "-fx-cursor: hand; -fx-font-weight: bold;");
+        editBtn.setOnAction(e -> showEditServiceDialog(service));
+        
+        Button deleteBtn = new Button("🗑️ Delete");
+        deleteBtn.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; " +
+                          "-fx-background-radius: 8; -fx-padding: 8 16; " +
+                          "-fx-cursor: hand; -fx-font-weight: bold;");
+        deleteBtn.setOnAction(e -> deleteService(serviceId));
+        
+        actions.getChildren().addAll(toggleStatusBtn, editBtn, deleteBtn);
+        
+        card.getChildren().addAll(header, new Separator(), details, actions);
+        
+        return card;
+    }
+    
+    private void toggleServiceStatus(String serviceId, String currentStatus) {
+        String newStatus = currentStatus.equals("active") ? "inactive" : "active";
+        
+        try {
+            apiClient.updateService(serviceId, null, null, null, newStatus);
+            
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Success");
+            alert.setHeaderText("Service Status Updated");
+            alert.setContentText("Service has been " + newStatus + "!");
+            alert.showAndWait();
+            
+            loadServices();
+            
+        } catch (Exception ex) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setContentText("Error: " + ex.getMessage());
+            alert.showAndWait();
+        }
+    }
+    
+    private void showEditServiceDialog(JSONObject service) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Edit Service");
+        dialog.setHeaderText("Edit Service: " + service.optString("name"));
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        TextField nameField = new TextField(service.optString("name", ""));
+        nameField.setPrefWidth(400);
+        
+        TextArea descField = new TextArea(service.optString("description", ""));
+        descField.setPrefRowCount(3);
+        descField.setPrefWidth(400);
+        
+        ComboBox<String> categoryBox = new ComboBox<>();
+        categoryBox.getItems().addAll("Hospital", "Clinic", "Government Office", 
+                                     "Bank", "Restaurant", "Salon", "Other");
+        categoryBox.setValue(service.optString("category", "Hospital"));
+        categoryBox.setPrefWidth(400);
+        
+        content.getChildren().addAll(
+            new Label("Service Name:"),
+            nameField,
+            new Label("Description:"),
+            descField,
+            new Label("Category:"),
+            categoryBox
+        );
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                try {
+                    apiClient.updateService(
+                        service.optString("service_id"),
+                        nameField.getText(),
+                        descField.getText(),
+                        categoryBox.getValue(),
+                        null
+                    );
+                    
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Success");
+                    alert.setHeaderText("Service Updated");
+                    alert.setContentText("Service has been updated successfully!");
+                    alert.showAndWait();
+                    
+                    loadServices();
+                    
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setContentText("Error: " + ex.getMessage());
+                    alert.showAndWait();
+                }
+            }
+        });
+    }
+    
+    private void deleteService(String serviceId) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Delete");
+        confirm.setHeaderText("Delete Service");
+        confirm.setContentText("Are you sure you want to delete this service?\nThis action cannot be undone.");
+        
+        confirm.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                try {
+                    apiClient.deleteService(serviceId);
+                    
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Success");
+                    alert.setHeaderText("Service Deleted");
+                    alert.setContentText("Service has been deleted successfully!");
+                    alert.showAndWait();
+                    
+                    loadServices();
+                    loadStatistics();
+                    
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setContentText("Error: " + ex.getMessage());
+                    alert.showAndWait();
+                }
+            }
+        });
+    }
+    
+    // ==========================================
+    // STATISTICS
+    // ==========================================
     
     private void loadStatistics() {
         statsGrid.getChildren().clear();
@@ -260,6 +634,10 @@ public class AdminScreen {
         item.getChildren().addAll(dot, nameLabel, spacer, countLabel);
         return item;
     }
+    
+    // ==========================================
+    // QUEUE MANAGEMENT
+    // ==========================================
     
     private void loadAllQueues() {
         allQueuesBox.getChildren().clear();

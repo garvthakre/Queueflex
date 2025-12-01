@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from grpc_client import verify_token
 import requests
+import uuid
 
 app = Flask(__name__)
 
@@ -10,6 +11,9 @@ admin_data = [
     {"id": 2, "task": "Manage Users"}
 ]
 
+# In-memory storage for services (in production, use a database)
+services = []
+
 QUEUE_SERVICE_URL = "http://localhost:4000"
 
 def extract_token(auth_header):
@@ -17,7 +21,6 @@ def extract_token(auth_header):
     if not auth_header:
         return None
     
-    # Handle both "Bearer <token>" and plain "<token>" formats
     if auth_header.startswith('Bearer '):
         return auth_header.split(' ')[1]
     return auth_header
@@ -43,6 +46,95 @@ def verify_admin(auth_header):
     except Exception as e:
         return None, (jsonify({"message": f"Authentication error: {str(e)}"}), 403)
 
+# ==========================================
+# SERVICE MANAGEMENT ENDPOINTS
+# ==========================================
+
+@app.route("/admin/services", methods=["POST"])
+def create_service():
+    """Create a new service (admin only)"""
+    auth_response, error = verify_admin(request.headers.get("Authorization"))
+    if error:
+        return error
+
+    data = request.json
+    if not data or not data.get("name"):
+        return jsonify({"message": "Service name is required"}), 400
+
+    service_id = str(uuid.uuid4())
+    service = {
+        "service_id": service_id,
+        "name": data.get("name"),
+        "description": data.get("description", ""),
+        "category": data.get("category", "General"),
+        "max_capacity": data.get("max_capacity", 50),
+        "estimated_time_per_person": data.get("estimated_time_per_person", 15),  # in minutes
+        "status": "active",
+        "created_by": auth_response.user_id
+    }
+    
+    services.append(service)
+    print(f"[ADMIN] Created service: {service_id} - {service['name']}")
+    return jsonify(service), 201
+
+@app.route("/admin/services", methods=["GET"])
+def get_all_services_admin():
+    """Get all services (admin only)"""
+    auth_response, error = verify_admin(request.headers.get("Authorization"))
+    if error:
+        return error
+
+    print(f"[ADMIN] Fetched all {len(services)} services")
+    return jsonify(services), 200
+
+@app.route("/admin/services/<service_id>", methods=["PUT"])
+def update_service(service_id):
+    """Update a service (admin only)"""
+    auth_response, error = verify_admin(request.headers.get("Authorization"))
+    if error:
+        return error
+
+    service = next((s for s in services if s["service_id"] == service_id), None)
+    if not service:
+        return jsonify({"message": "Service not found"}), 404
+
+    data = request.json
+    
+    if "name" in data:
+        service["name"] = data["name"]
+    if "description" in data:
+        service["description"] = data["description"]
+    if "category" in data:
+        service["category"] = data["category"]
+    if "max_capacity" in data:
+        service["max_capacity"] = data["max_capacity"]
+    if "estimated_time_per_person" in data:
+        service["estimated_time_per_person"] = data["estimated_time_per_person"]
+    if "status" in data:
+        service["status"] = data["status"]
+
+    print(f"[ADMIN] Updated service: {service_id}")
+    return jsonify(service), 200
+
+@app.route("/admin/services/<service_id>", methods=["DELETE"])
+def delete_service(service_id):
+    """Delete a service (admin only)"""
+    auth_response, error = verify_admin(request.headers.get("Authorization"))
+    if error:
+        return error
+
+    service = next((s for s in services if s["service_id"] == service_id), None)
+    if not service:
+        return jsonify({"message": "Service not found"}), 404
+
+    services.remove(service)
+    print(f"[ADMIN] Deleted service: {service_id}")
+    return jsonify({"message": "Service deleted successfully"}), 200
+
+# ==========================================
+# EXISTING ENDPOINTS
+# ==========================================
+
 @app.route("/admin/data", methods=["GET"])
 def get_admin_data():
     """Get admin-specific data"""
@@ -60,7 +152,6 @@ def get_all_queues():
         return error
 
     try:
-        # Forward request to queue service with admin token
         response = requests.get(
             f"{QUEUE_SERVICE_URL}/queue/get",
             headers={"Authorization": request.headers.get("Authorization")}
@@ -148,12 +239,10 @@ def get_queue_stats():
                 "by_user": {}
             }
             
-            # Count by service type
             for q in queues:
                 service_type = q.get("serviceType", "unknown")
                 stats["by_service_type"][service_type] = stats["by_service_type"].get(service_type, 0) + 1
                 
-                # Count by user
                 user_id = str(q.get("user_id", "unknown"))
                 stats["by_user"][user_id] = stats["by_user"].get(user_id, 0) + 1
             
