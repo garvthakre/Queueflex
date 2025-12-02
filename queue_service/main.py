@@ -43,19 +43,42 @@ def authenticate_request():
         print(f"[DEBUG] Exception during verification: {str(e)}")
         return None, (jsonify({"message": f"Authentication error: {str(e)}"}), 403)
 
-def get_services():
-    """Fetch services from admin service"""
+def get_services_from_admin(auth_header):
+    """Fetch services from admin service using public endpoint"""
     try:
+        # Use the public endpoint that doesn't require admin privileges
         response = requests.get(
-            f"{ADMIN_SERVICE_URL}/admin/services",
-            headers={"Authorization": request.headers.get("Authorization")}
+            f"{ADMIN_SERVICE_URL}/services",
+            headers={"Authorization": auth_header},
+            timeout=5
         )
         if response.status_code == 200:
-            return response.json()
-        return []
+            services = response.json()
+            print(f"[QUEUE] Successfully fetched {len(services)} services from admin service")
+            return services
+        else:
+            print(f"[QUEUE] Error fetching services: {response.status_code} - {response.text}")
+            return []
     except Exception as e:
         print(f"[QUEUE] Error fetching services: {str(e)}")
         return []
+
+def get_service_by_id_from_admin(service_id, auth_header):
+    """Fetch specific service from admin service using public endpoint"""
+    try:
+        response = requests.get(
+            f"{ADMIN_SERVICE_URL}/services/{service_id}",
+            headers={"Authorization": auth_header},
+            timeout=5
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"[QUEUE] Error fetching service {service_id}: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"[QUEUE] Error fetching service: {str(e)}")
+        return None
 
 # ==========================================
 # SERVICE ENDPOINTS (PUBLIC)
@@ -69,19 +92,18 @@ def get_available_services():
         return error
 
     try:
-        response = requests.get(
-            f"{ADMIN_SERVICE_URL}/admin/services",
-            headers={"Authorization": request.headers.get("Authorization")}
-        )
+        all_services = get_services_from_admin(request.headers.get("Authorization"))
         
-        if response.status_code == 200:
-            all_services = response.json()
-            # Filter only active services for regular users
-            active_services = [s for s in all_services if s.get("status") == "active"]
-            print(f"[QUEUE] Fetched {len(active_services)} active services")
-            return jsonify(active_services), 200
-        else:
-            return jsonify([]), 200
+        # Filter only active services for regular users
+        active_services = [s for s in all_services if s.get("status") == "active"]
+        
+        # Add current queue count to each service
+        for service in active_services:
+            service_queue = [q for q in queue if q.get("service_id") == service["service_id"] and q.get("status") == "waiting"]
+            service["current_queue_count"] = len(service_queue)
+        
+        print(f"[QUEUE] Fetched {len(active_services)} active services")
+        return jsonify(active_services), 200
     except Exception as e:
         print(f"[QUEUE] Error fetching services: {str(e)}")
         return jsonify({"message": f"Error fetching services: {str(e)}"}), 500
@@ -94,26 +116,17 @@ def get_service_by_id(service_id):
         return error
 
     try:
-        response = requests.get(
-            f"{ADMIN_SERVICE_URL}/admin/services",
-            headers={"Authorization": request.headers.get("Authorization")}
-        )
+        service = get_service_by_id_from_admin(service_id, request.headers.get("Authorization"))
         
-        if response.status_code == 200:
-            services = response.json()
-            service = next((s for s in services if s["service_id"] == service_id), None)
-            
-            if not service:
-                return jsonify({"message": "Service not found"}), 404
-                
-            # Get queue count for this service
-            service_queue = [q for q in queue if q.get("service_id") == service_id and q.get("status") == "waiting"]
-            service["current_queue_count"] = len(service_queue)
-            
-            print(f"[QUEUE] Fetched service: {service_id}")
-            return jsonify(service), 200
-        else:
+        if not service:
             return jsonify({"message": "Service not found"}), 404
+            
+        # Get queue count for this service
+        service_queue = [q for q in queue if q.get("service_id") == service_id and q.get("status") == "waiting"]
+        service["current_queue_count"] = len(service_queue)
+        
+        print(f"[QUEUE] Fetched service: {service_id}")
+        return jsonify(service), 200
     except Exception as e:
         print(f"[QUEUE] Error fetching service: {str(e)}")
         return jsonify({"message": f"Error fetching service: {str(e)}"}), 500
@@ -138,27 +151,18 @@ def add_to_queue():
 
     # Verify service exists and is active
     try:
-        response = requests.get(
-            f"{ADMIN_SERVICE_URL}/admin/services",
-            headers={"Authorization": request.headers.get("Authorization")}
-        )
+        service = get_service_by_id_from_admin(data.get("service_id"), request.headers.get("Authorization"))
         
-        if response.status_code == 200:
-            services = response.json()
-            service = next((s for s in services if s["service_id"] == data.get("service_id")), None)
-            
-            if not service:
-                return jsonify({"message": "Service not found"}), 404
-            
-            if service.get("status") != "active":
-                return jsonify({"message": "Service is not currently active"}), 400
-            
-            # Check capacity
-            service_queue_count = len([q for q in queue if q.get("service_id") == service["service_id"] and q.get("status") == "waiting"])
-            if service_queue_count >= service.get("max_capacity", 50):
-                return jsonify({"message": "Service queue is full"}), 400
-        else:
-            return jsonify({"message": "Could not verify service"}), 500
+        if not service:
+            return jsonify({"message": "Service not found"}), 404
+        
+        if service.get("status") != "active":
+            return jsonify({"message": "Service is not currently active"}), 400
+        
+        # Check capacity
+        service_queue_count = len([q for q in queue if q.get("service_id") == service["service_id"] and q.get("status") == "waiting"])
+        if service_queue_count >= service.get("max_capacity", 50):
+            return jsonify({"message": "Service queue is full"}), 400
     except Exception as e:
         return jsonify({"message": f"Error verifying service: {str(e)}"}), 500
 
@@ -173,7 +177,7 @@ def add_to_queue():
         "service_id": data.get("service_id"),
         "name": data.get("name"),
         "purpose": data.get("purpose", ""),
-        "serviceType": data.get("serviceType", service.get("category", "General")),
+        "serviceType": service.get("name", service.get("category", "General")),
         "position": position,
         "status": "waiting"
     }
