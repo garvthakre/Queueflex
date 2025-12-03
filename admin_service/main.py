@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from grpc_client import verify_token
 import requests
 import uuid
+import db
 
 app = Flask(__name__)
 
@@ -10,9 +11,6 @@ admin_data = [
     {"id": 1, "task": "Check Queue Metrics"},
     {"id": 2, "task": "Manage Users"}
 ]
-
-# In-memory storage for services (in production, use a database)
-services = []
 
 QUEUE_SERVICE_URL = "http://localhost:4000"
 
@@ -68,14 +66,18 @@ def create_service():
         "description": data.get("description", ""),
         "category": data.get("category", "General"),
         "max_capacity": data.get("max_capacity", 50),
-        "estimated_time_per_person": data.get("estimated_time_per_person", 15),  # in minutes
+        "estimated_time_per_person": data.get("estimated_time_per_person", 15),
         "status": "active",
         "created_by": auth_response.user_id
     }
     
-    services.append(service)
-    print(f"[ADMIN] Created service: {service_id} - {service['name']}")
-    return jsonify(service), 201
+    try:
+        created_service = db.create_service(service)
+        print(f"[ADMIN] Created service: {service_id} - {service['name']}")
+        return jsonify(created_service), 201
+    except Exception as e:
+        print(f"[ADMIN] Error creating service: {str(e)}")
+        return jsonify({"message": f"Error creating service: {str(e)}"}), 500
 
 @app.route("/admin/services", methods=["GET"])
 def get_all_services_admin():
@@ -84,8 +86,13 @@ def get_all_services_admin():
     if error:
         return error
 
-    print(f"[ADMIN] Fetched all {len(services)} services")
-    return jsonify(services), 200
+    try:
+        all_services = db.get_all_services()
+        print(f"[ADMIN] Fetched all {len(all_services)} services")
+        return jsonify(all_services), 200
+    except Exception as e:
+        print(f"[ADMIN] Error fetching services: {str(e)}")
+        return jsonify({"message": f"Error fetching services: {str(e)}"}), 500
 
 @app.route("/admin/services/<service_id>", methods=["PUT"])
 def update_service(service_id):
@@ -94,27 +101,33 @@ def update_service(service_id):
     if error:
         return error
 
-    service = next((s for s in services if s["service_id"] == service_id), None)
+    service = db.get_service_by_id(service_id)
     if not service:
         return jsonify({"message": "Service not found"}), 404
 
     data = request.json
+    updates = {}
     
     if "name" in data:
-        service["name"] = data["name"]
+        updates["name"] = data["name"]
     if "description" in data:
-        service["description"] = data["description"]
+        updates["description"] = data["description"]
     if "category" in data:
-        service["category"] = data["category"]
+        updates["category"] = data["category"]
     if "max_capacity" in data:
-        service["max_capacity"] = data["max_capacity"]
+        updates["max_capacity"] = data["max_capacity"]
     if "estimated_time_per_person" in data:
-        service["estimated_time_per_person"] = data["estimated_time_per_person"]
+        updates["estimated_time_per_person"] = data["estimated_time_per_person"]
     if "status" in data:
-        service["status"] = data["status"]
+        updates["status"] = data["status"]
 
-    print(f"[ADMIN] Updated service: {service_id}")
-    return jsonify(service), 200
+    try:
+        updated_service = db.update_service(service_id, updates)
+        print(f"[ADMIN] Updated service: {service_id}")
+        return jsonify(updated_service), 200
+    except Exception as e:
+        print(f"[ADMIN] Error updating service: {str(e)}")
+        return jsonify({"message": f"Error updating service: {str(e)}"}), 500
 
 @app.route("/admin/services/<service_id>", methods=["DELETE"])
 def delete_service(service_id):
@@ -123,13 +136,84 @@ def delete_service(service_id):
     if error:
         return error
 
-    service = next((s for s in services if s["service_id"] == service_id), None)
+    service = db.get_service_by_id(service_id)
     if not service:
         return jsonify({"message": "Service not found"}), 404
 
-    services.remove(service)
-    print(f"[ADMIN] Deleted service: {service_id}")
-    return jsonify({"message": "Service deleted successfully"}), 200
+    try:
+        db.delete_service(service_id)
+        print(f"[ADMIN] Deleted service: {service_id}")
+        return jsonify({"message": "Service deleted successfully"}), 200
+    except Exception as e:
+        print(f"[ADMIN] Error deleting service: {str(e)}")
+        return jsonify({"message": f"Error deleting service: {str(e)}"}), 500
+
+# ==========================================
+# PUBLIC SERVICE ENDPOINTS (for queue service)
+# ==========================================
+
+@app.route("/services", methods=["GET"])
+def get_services_public():
+    """Get active services (public endpoint - requires authentication but not admin)"""
+    auth_header = request.headers.get("Authorization")
+    
+    if not auth_header:
+        return jsonify({"message": "Token required"}), 401
+
+    token = extract_token(auth_header)
+    if not token:
+        return jsonify({"message": "Invalid authorization format"}), 401
+
+    try:
+        # Verify token is valid (but don't require admin)
+        auth_response = verify_token(token)
+        if not auth_response.is_valid:
+            return jsonify({"message": "Invalid token"}), 403
+        
+        # Return only active services for regular users
+        all_services = db.get_all_services()
+        active_services = [s for s in all_services if s.get("status") == "active"]
+        
+        print(f"[ADMIN] Public endpoint: Fetched {len(active_services)} active services for user {auth_response.user_id}")
+        return jsonify(active_services), 200
+        
+    except Exception as e:
+        print(f"[ADMIN] Error in public services endpoint: {str(e)}")
+        return jsonify({"message": f"Error fetching services: {str(e)}"}), 500
+
+@app.route("/services/<service_id>", methods=["GET"])
+def get_service_public(service_id):
+    """Get specific service (public endpoint - requires authentication but not admin)"""
+    auth_header = request.headers.get("Authorization")
+    
+    if not auth_header:
+        return jsonify({"message": "Token required"}), 401
+
+    token = extract_token(auth_header)
+    if not token:
+        return jsonify({"message": "Invalid authorization format"}), 401
+
+    try:
+        # Verify token is valid (but don't require admin)
+        auth_response = verify_token(token)
+        if not auth_response.is_valid:
+            return jsonify({"message": "Invalid token"}), 403
+        
+        service = db.get_service_by_id(service_id)
+        
+        if not service:
+            return jsonify({"message": "Service not found"}), 404
+        
+        # Only return if service is active (for regular users)
+        if service.get("status") != "active" and not auth_response.is_admin:
+            return jsonify({"message": "Service not found"}), 404
+        
+        print(f"[ADMIN] Public endpoint: Fetched service {service_id} for user {auth_response.user_id}")
+        return jsonify(service), 200
+        
+    except Exception as e:
+        print(f"[ADMIN] Error in public service endpoint: {str(e)}")
+        return jsonify({"message": f"Error fetching service: {str(e)}"}), 500
 
 # ==========================================
 # EXISTING ENDPOINTS
