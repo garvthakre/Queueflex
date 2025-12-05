@@ -2,7 +2,7 @@ const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 const jwt = require('jsonwebtoken');
 
-// HARDCODED SECRET - MATCHES EVERYWHERE
+// HARDCODED SECRET -   just for demo for now gotta fix it in future 
 const SECRET_KEY = "my_super_secret_key_12345";
 const PROTO_PATH = __dirname + '/proto/auth.proto';
 
