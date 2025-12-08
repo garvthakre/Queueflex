@@ -43,11 +43,7 @@ def verify_admin(auth_header):
         return auth_response, None
     except Exception as e:
         return None, (jsonify({"message": f"Authentication error: {str(e)}"}), 403)
-
-# ==========================================
-# SERVICE MANAGEMENT ENDPOINTS
-# ==========================================
-
+ 
 @app.route("/admin/services", methods=["POST"])
 def create_service():
     """Create a new service (admin only)"""
