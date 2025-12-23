@@ -3,14 +3,19 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
-
+const cors = require('cors');
 const SECRET_KEY = process.env.JWT_SECRET_KEY || "my_super_secret_key_12345";
 const TOKEN_EXPIRATION_HOURS = process.env.TOKEN_EXPIRATION_HOURS || 24;
 
 console.log(`[AUTH REST] JWT Secret: ${SECRET_KEY}`);
-
+ 
 const app = express();
-app.use(express.json());
+app.use(express.json()); 
+app.use(cors({
+  origin: 'http://localhost:3001',  
+  credentials: true,
+}));
+ 
 
 app.post('/signup', async (req, res) => {
   const { name, email, password, is_admin } = req.body;
