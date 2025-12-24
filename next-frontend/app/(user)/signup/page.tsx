@@ -35,7 +35,7 @@ const Page: NextPage = () => {
     }
 
     try {
-      await authService.signup(formdata);
+      await authService.Signup(formdata);
       // redirect or success message here
     } catch (err: any) {
       seterror(err.message || "Signup failed");
