@@ -13,6 +13,7 @@ const Page: NextPage<Props> = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    is_admin: false,
   });
 
   const [error, seterror] = useState<string>("");
@@ -84,6 +85,14 @@ const Page: NextPage<Props> = () => {
           value={formdata.password}
           onChange={handleChange}
           required
+        />
+        <br />
+        <input type="checkbox"
+          name="isadmin"
+          checked={formdata.is_admin}
+          onChange={(e) => setformdata({...formdata, is_admin: e.target.checked})}
+        /> Admin
+        <br
         />
         <br />
 

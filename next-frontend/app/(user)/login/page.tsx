@@ -12,6 +12,7 @@ const Page: NextPage<Props> = ({}) => {
   const [formdata, setformdata] = React.useState<loginData>({
     email: "",
     password: "",
+    
   });
   const [errors, seterrors] = React.useState<loginData>({
     email: "",
@@ -34,7 +35,7 @@ const Page: NextPage<Props> = ({}) => {
        const response = await authService.Login(formdata);
        console.log("Login success:", response);
       console.log("Login form submitted:", formdata);
-      if(response.is_admin==true){
+      if(response.admin==true){
         router.push('/provider/dashboard');
       }else{
         router.push('/client/Booking');

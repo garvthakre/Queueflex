@@ -2,7 +2,7 @@ export interface signupData {
   name: string;
   email: string;
   password: string;
-  isadmin?: boolean;
+  is_admin?: boolean;
 }
 export interface SignupFormData extends signupData {
   confirmPassword: string;
@@ -19,7 +19,7 @@ export interface loginData {
 export interface LoginResponse {
   token: string;
   user_id: number;
-  is_admin: boolean;
+  admin: boolean;
   
 }
 export interface BookingResponseData {
@@ -51,3 +51,4 @@ export interface ServiceAPIResponse {
   serviceType?: string
   current_queue_count?: number
 }
+ 

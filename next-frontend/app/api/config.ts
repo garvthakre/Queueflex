@@ -13,11 +13,15 @@ export const queueApi = axios.create({
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
 });
-
+export const AdminApi = axios.create({
+  baseURL: "http://localhost:5000",
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
+});
 // Function to attach interceptor to an Axios instance
 function attachAuthInterceptor(api: AxiosInstance) {
   api.interceptors.request.use(
-    config => {
+    (config) => {
       const token = localStorage.getItem("token");
       console.log(`[Interceptor ${api.defaults.baseURL}] token =`, token);
 
@@ -27,10 +31,11 @@ function attachAuthInterceptor(api: AxiosInstance) {
 
       return config;
     },
-    error => Promise.reject(error)
+    (error) => Promise.reject(error)
   );
 }
 
 // attach to ALL backend APIs
 attachAuthInterceptor(authApi);
 attachAuthInterceptor(queueApi);
+attachAuthInterceptor(AdminApi);
