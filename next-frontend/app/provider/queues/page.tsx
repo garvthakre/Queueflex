@@ -44,52 +44,58 @@ const Page = () => {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Queues</h2>
+    <div className="space-y-4">
+      <h2 className="text-2xl font-semibold">Queues</h2>
+
       {loading ? (
         <div>Loading...</div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: 8 }}>Name</th>
-              <th style={{ textAlign: "left", padding: 8 }}>Service</th>
-              <th style={{ textAlign: "left", padding: 8 }}>Position</th>
-              <th style={{ textAlign: "left", padding: 8 }}>Status</th>
-              <th style={{ textAlign: "left", padding: 8 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it) => (
-              <tr key={it.queue_id} style={{ borderTop: "1px solid #eee" }}>
-                <td style={{ padding: 8 }}>{it.name}</td>
-                <td style={{ padding: 8 }}>{it.serviceType}</td>
-                <td style={{ padding: 8 }}>{it.position ?? "-"}</td>
-                <td style={{ padding: 8 }}>{it.status}</td>
-                <td style={{ padding: 8 }}>
-                  <button
-                    onClick={() => updateStatus(it.queue_id, "completed")}
-                    style={{ marginRight: 8 }}
-                  >
-                    Mark Completed
-                  </button>
-                  <button
-                    onClick={() => updateStatus(it.queue_id, "waiting")}
-                    style={{ marginRight: 8 }}
-                  >
-                    Set Waiting
-                  </button>
-                  <button
-                    onClick={() => deleteItem(it.queue_id)}
-                    style={{ color: "crimson" }}
-                  >
-                    Delete
-                  </button>
-                </td>
+        <div className="overflow-x-auto card">
+          <table className="w-full table-auto">
+            <thead>
+              <tr className="text-left text-sm text-gray-600">
+                <th className="p-3">Name</th>
+                <th className="p-3">Service</th>
+                <th className="p-3">Position</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {items.map((it) => (
+                <tr key={it.queue_id} className="border-t">
+                  <td className="p-3">{it.name}</td>
+                  <td className="p-3">{it.serviceType}</td>
+                  <td className="p-3">{it.position ?? "-"}</td>
+                  <td className="p-3">{it.status}</td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateStatus(it.queue_id, "completed")}
+                        className="px-2 py-1 rounded border text-sm"
+                      >
+                        Mark
+                      </button>
+                      <button
+                        onClick={() => updateStatus(it.queue_id, "waiting")}
+                        className="px-2 py-1 rounded border text-sm"
+                      >
+                        Waiting
+                      </button>
+                      <button
+                        onClick={() => deleteItem(it.queue_id)}
+                        className="px-2 py-1 rounded text-sm text-red-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

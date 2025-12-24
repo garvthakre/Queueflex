@@ -32,24 +32,27 @@ const Page = () => {
   const completed = Math.max(0, stats.total_items - stats.waiting);
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Provider Dashboard</h2>
-      <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-        <div style={{ padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-          <div>Total bookings</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-semibold">Provider Dashboard</h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="card text-center">
+          <div className="text-sm muted">Total bookings</div>
+          <div className="text-3xl font-bold mt-2">
             {loading ? "..." : stats.total_items}
           </div>
         </div>
-        <div style={{ padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-          <div>Waiting</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>
+
+        <div className="card text-center">
+          <div className="text-sm muted">Waiting</div>
+          <div className="text-3xl font-bold mt-2">
             {loading ? "..." : stats.waiting}
           </div>
         </div>
-        <div style={{ padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-          <div>Completed</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>
+
+        <div className="card text-center">
+          <div className="text-sm muted">Completed</div>
+          <div className="text-3xl font-bold mt-2">
             {loading ? "..." : completed}
           </div>
         </div>
