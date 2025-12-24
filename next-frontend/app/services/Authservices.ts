@@ -1,11 +1,11 @@
-import { apiClient } from "../api/config";
+import {  authApi } from "../api/config";
 import { loginData, LoginResponse, signupData, SignupResponse } from "../api/interface";
 const authService = {
   Signup: async (
     params: signupData
   ): Promise<SignupResponse> => {
     try {
-    const response = await apiClient.post<SignupResponse>('/signup', params);
+    const response = await authApi.post<SignupResponse>('/signup', params);
     return response.data;
     } catch (error: unknown) {
     throw error || error;
@@ -15,7 +15,10 @@ const authService = {
     params:loginData
   ): Promise<LoginResponse>=>{
     try {
-      const response = await apiClient.post<LoginResponse>('/login',params);
+      const response = await authApi.post<LoginResponse>('/login',params);
+      localStorage.setItem("token", response.data.token);
+ 
+      console.log("Token in authService:", response.data.token);
       return response.data;
       } catch (error: unknown) {
       throw error || error;

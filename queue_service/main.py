@@ -2,8 +2,12 @@ from flask import Flask, request, jsonify
 from grpc_client import verify_token
 import uuid
 import requests
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app   , resources={r"/*": {"origins": "http://localhost:3001"}},
+    supports_credentials=True)
+ 
 queue = []
 
 ADMIN_SERVICE_URL = "http://localhost:5000"
@@ -79,11 +83,7 @@ def get_service_by_id_from_admin(service_id, auth_header):
     except Exception as e:
         print(f"[QUEUE] Error fetching service: {str(e)}")
         return None
-
-# ==========================================
-# SERVICE ENDPOINTS (PUBLIC)
-# ==========================================
-
+ 
 @app.route("/services", methods=["GET"])
 def get_available_services():
     """Get all available services (public - requires authentication)"""

@@ -37,7 +37,7 @@ const Page: NextPage<Props> = ({}) => {
       if(response.is_admin==true){
         router.push('/provider/dashboard');
       }else{
-        router.push('/client/Status');
+        router.push('/client/Booking');
       }
     } catch (error) {
       console.error("Login error:", error);

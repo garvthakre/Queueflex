@@ -3,9 +3,12 @@ from grpc_client import verify_token
 import requests
 import uuid
 import db
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
+ 
 # Example admin-only data
 admin_data = [
     {"id": 1, "task": "Check Queue Metrics"},
