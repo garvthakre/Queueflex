@@ -1,64 +1,57 @@
 "use client";
 
-import { NextPage } from "next";
 import React, { useState } from "react";
-import { SignupFormData } from "../../api/interface";
 import authService from "../../services/Authservices";
 
-const Page: NextPage = () => {
-  const [formdata, setformdata] = useState<SignupFormData>({
+const Page = () => {
+  const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
 
-  const [error, seterror] = useState<string>("");
-
-  // ✅ FIXED handleChange
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setformdata((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setForm((p) => ({ ...p, [name]: value }));
   };
 
-  // ✅ ADD handleSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setSuccess("");
 
-    if (formdata.password !== formdata.confirmPassword) {
-      seterror("Passwords do not match");
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match");
       return;
     }
 
     try {
-      // Force non-provider signup from public page
       await authService.Signup({
-        name: formdata.name,
-        email: formdata.email,
-        password: formdata.password,
-        is_admin: false,
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        is_admin: true,
       });
-      // redirect or success message here
+      setSuccess("Provider created successfully");
+      setForm({ name: "", email: "", password: "", confirmPassword: "" });
     } catch (err: any) {
-      seterror(err.message || "Signup failed");
+      setError(err?.message || "Failed to create provider");
     }
   };
 
-  // ✅ JSX belongs here
   return (
     <div className="max-w-md mx-auto card">
-      <h1 className="text-2xl font-semibold mb-4">Create an account</h1>
+      <h1 className="text-2xl font-semibold mb-4">Create Provider</h1>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="text-sm muted">Name</label>
           <input
-            type="text"
             name="name"
-            value={formdata.name}
+            value={form.name}
             onChange={handleChange}
             required
           />
@@ -67,10 +60,10 @@ const Page: NextPage = () => {
         <div>
           <label className="text-sm muted">Email</label>
           <input
-            type="email"
             name="email"
-            value={formdata.email}
+            value={form.email}
             onChange={handleChange}
+            type="email"
             required
           />
         </div>
@@ -78,10 +71,10 @@ const Page: NextPage = () => {
         <div>
           <label className="text-sm muted">Password</label>
           <input
-            type="password"
             name="password"
-            value={formdata.password}
+            value={form.password}
             onChange={handleChange}
+            type="password"
             required
           />
         </div>
@@ -89,38 +82,22 @@ const Page: NextPage = () => {
         <div>
           <label className="text-sm muted">Confirm</label>
           <input
-            type="password"
             name="confirmPassword"
-            value={formdata.confirmPassword}
+            value={form.confirmPassword}
             onChange={handleChange}
+            type="password"
             required
           />
         </div>
 
-        {/* Providers are created by admins only. Public signup cannot register as provider. */}
-
         <div className="flex gap-2">
           <button className="btn" type="submit">
-            Signup
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 rounded border"
-            onClick={() =>
-              setformdata({
-                name: "",
-                email: "",
-                password: "",
-                confirmPassword: "",
-                is_admin: false,
-              })
-            }
-          >
-            Cancel
+            Create
           </button>
         </div>
 
         {error && <p className="text-red-600">{error}</p>}
+        {success && <p className="text-green-600">{success}</p>}
       </form>
     </div>
   );

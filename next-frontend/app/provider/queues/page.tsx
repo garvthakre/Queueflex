@@ -11,8 +11,18 @@ const Page = () => {
   const fetchQueues = async () => {
     setLoading(true);
     try {
-      const res = await AdminApi.get("/admin/queue/all");
-      setItems(res.data || []);
+      // fetch provider's services to filter queues
+      const servicesRes = await AdminApi.get("/provider/services");
+      const allServices = servicesRes.data || [];
+      const userId = Number(localStorage.getItem("user_id") || 0);
+      const myServiceIds = allServices
+        .filter((s: any) => Number(s.created_by) === userId)
+        .map((s: any) => String(s.service_id));
+
+      // provider-specific endpoint returns only queues for provider services
+      const res = await AdminApi.get("/provider/queue/all");
+      const allQueues = res.data || [];
+      setItems(allQueues);
     } catch (err) {
       console.error("[Queues] fetchQueues error:", err);
     } finally {
@@ -26,7 +36,7 @@ const Page = () => {
 
   const updateStatus = async (queue_id: string, status: string) => {
     try {
-      await AdminApi.put(`/admin/queue/${queue_id}`, { status });
+      await AdminApi.put(`/provider/queue/${queue_id}`, { status });
       fetchQueues();
     } catch (err) {
       console.error("[Queues] updateStatus error:", err);
@@ -36,7 +46,7 @@ const Page = () => {
   const deleteItem = async (queue_id: string) => {
     if (!confirm("Delete this queue item?")) return;
     try {
-      await AdminApi.delete(`/admin/queue/${queue_id}`);
+      await AdminApi.delete(`/provider/queue/${queue_id}`);
       fetchQueues();
     } catch (err) {
       console.error("[Queues] deleteItem error:", err);

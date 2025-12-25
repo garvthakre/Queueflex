@@ -8,6 +8,11 @@ const Page = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // add service modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+
   // modal state
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editName, setEditName] = useState("");
@@ -17,8 +22,10 @@ const Page = () => {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const res = await AdminApi.get("/admin/services");
-      setServices(res.data || []);
+      const res = await AdminApi.get("/provider/services");
+      const all = res.data || [];
+      // provider endpoint already returns services owned by the logged-in provider
+      setServices(all);
     } catch (err) {
       console.error("[Services] fetchServices error:", err);
     } finally {
@@ -34,7 +41,7 @@ const Page = () => {
   const toggleStatus = async (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === "active" ? "inactive" : "active";
     try {
-      await AdminApi.put(`/admin/services/${id}`, { status: nextStatus });
+      await AdminApi.put(`/provider/services/${id}`, { status: nextStatus });
       fetchServices();
     } catch (err) {
       console.error("[Services] toggleStatus error:", err);
@@ -45,7 +52,7 @@ const Page = () => {
   const deleteService = async (id: string) => {
     if (!confirm("Delete this service?")) return;
     try {
-      await AdminApi.delete(`/admin/services/${id}`);
+      await AdminApi.delete(`/provider/services/${id}`);
       fetchServices();
     } catch (err) {
       console.error("[Services] deleteService error:", err);
@@ -64,7 +71,7 @@ const Page = () => {
     if (!editingService) return;
 
     try {
-      await AdminApi.put(`/admin/services/${editingService.service_id}`, {
+      await AdminApi.put(`/provider/services/${editingService.service_id}`, {
         name: editName,
         description: editDescription,
       });
@@ -77,7 +84,20 @@ const Page = () => {
 
   return (
     <div style={{ padding: 16 }}>
-      <h2>Services Management</h2>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <h2>Services Management</h2>
+        <div>
+          <button className="btn" onClick={() => setShowAddModal(true)}>
+            Add Service
+          </button>
+        </div>
+      </div>
 
       {loading ? (
         <div>Loading...</div>
@@ -163,9 +183,76 @@ const Page = () => {
               style={{ width: "100%", marginBottom: 10 }}
             />
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <div
+              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
+            >
               <button onClick={() => setEditingService(null)}>Cancel</button>
               <button onClick={saveEdit}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD SERVICE MODAL */}
+      {showAddModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: 20,
+              borderRadius: 8,
+              width: 420,
+            }}
+          >
+            <h3>Add Service</h3>
+
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Service name"
+              style={{ width: "100%", marginBottom: 10 }}
+            />
+
+            <textarea
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="Description"
+              style={{ width: "100%", marginBottom: 10 }}
+            />
+
+            <div
+              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
+            >
+              <button onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await AdminApi.post("/provider/services", {
+                      name: newName,
+                      description: newDescription,
+                    });
+                    setNewName("");
+                    setNewDescription("");
+                    setShowAddModal(false);
+                    fetchServices();
+                  } catch (err) {
+                    console.error("[AddService] error:", err);
+                  }
+                }}
+              >
+                Create
+              </button>
             </div>
           </div>
         </div>
