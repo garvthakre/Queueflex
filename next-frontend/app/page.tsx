@@ -13,11 +13,11 @@ export default function Page() {
         </p>
 
         <div className="flex justify-center gap-4">
-          <Link href="/(user)/signup" className="btn">
+          <Link href="/signup" className="btn">
             Get Started
           </Link>
 
-          <Link href="/(user)/login" className="px-4 py-2 rounded border">
+          <Link href="/login" className="px-4 py-2 rounded border">
             Log in
           </Link>
         </div>
