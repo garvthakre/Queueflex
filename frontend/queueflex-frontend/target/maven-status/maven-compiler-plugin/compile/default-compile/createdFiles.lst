@@ -1,6 +1,7 @@
 Main.class
 ApiClient.class
 AdminScreen.class
+QueueTicketGenerator.class
 QueueScreen.class
 SignupScreen.class
 LoginScreen.class

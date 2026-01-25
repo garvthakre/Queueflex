@@ -8,10 +8,6 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${CYAN}=========================================="
-echo "     QueueFlex - Starting All Services"
-echo "==========================================${NC}"
-
 # Create logs directory if it doesn't exist
 echo -e "\n${BLUE}Step 0: Setting up environment...${NC}"
 if [ ! -d "logs" ]; then
