@@ -12,15 +12,44 @@ NC='\033[0m'
 echo -e "\n${BLUE}Step 0: Setting up environment...${NC}"
 if [ ! -d "logs" ]; then
     mkdir logs
-    echo -e "${GREEN}✓ Created logs directory${NC}"
+    echo -e "${GREEN} Created logs directory${NC}"
 else
-    echo -e "${GREEN}✓ Logs directory exists${NC}"
+    echo -e "${GREEN} Logs directory exists${NC}"
 fi
+
+# Install Python dependencies
+echo -e "\n${BLUE}Installing Python dependencies...${NC}"
+cd backend/services/admin_service
+if [ -f "requirements.txt" ]; then
+    pip install -q -r requirements.txt > /dev/null 2>&1
+    echo -e "${GREEN}✓ Admin Service dependencies installed${NC}"
+fi
+cd ../../..
+
+cd backend/services/queue_service
+if [ -f "requirements.txt" ]; then
+    pip install -q -r requirements.txt > /dev/null 2>&1
+    echo -e "${GREEN}✓ Queue Service dependencies installed${NC}"
+fi
+cd ../../..
+
+# Install Node.js dependencies
+echo -e "\n${BLUE}Installing Node.js dependencies...${NC}"
+cd backend/services/auth_service
+if [ -f "package.json" ]; then
+    npm install > /dev/null 2>&1
+    echo -e "${GREEN}✓ Auth Service dependencies installed${NC}"
+fi
+cd ../../..
 
 # Function to check if a port is in use
 check_port() {
     local port=$1
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1 ; then
+    # Try netstat first (works on Windows)
+    if netstat -ano 2>/dev/null | grep ":$port " >/dev/null 2>&1; then
+        return 0
+    # Fallback to lsof for Unix systems
+    elif lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1 ; then
         return 0
     else
         return 1
@@ -31,7 +60,16 @@ check_port() {
 kill_port() {
     local port=$1
     echo -e "${YELLOW}Killing existing process on port $port...${NC}"
-    lsof -ti:$port | xargs kill -9 2>/dev/null || true
+    # Try Windows taskkill first
+    if command -v taskkill &> /dev/null; then
+        PID=$(netstat -ano 2>/dev/null | grep ":$port " | awk '{print $NF}' | head -1)
+        if [ ! -z "$PID" ] && [ "$PID" != "PID" ]; then
+            taskkill /PID $PID /F 2>/dev/null || true
+        fi
+    # Fallback to lsof for Unix systems
+    elif command -v lsof &> /dev/null; then
+        lsof -ti:$port | xargs kill -9 2>/dev/null || true
+    fi
     sleep 1
 }
 
@@ -58,10 +96,10 @@ for port in "${PORTS[@]}"; do
 done
 
 echo -e "\n${BLUE}Step 2: Starting Auth Service (gRPC)...${NC}"
-cd auth_service
-node grpc_server.js > ../logs/grpc_server.log 2>&1 &
+cd backend/services/auth_service
+node grpc_server.js > ../../../logs/grpc_server.log 2>&1 &
 GRPC_PID=$!
-cd ..
+cd ../../..
 sleep 3
 
 if check_port 50051; then
@@ -74,10 +112,10 @@ else
 fi
 
 echo -e "\n${BLUE}Step 3: Starting Auth Service (REST)...${NC}"
-cd auth_service
-node index.js > ../logs/auth_rest.log 2>&1 &
+cd backend/services/auth_service
+node index.js > ../../../logs/auth_rest.log 2>&1 &
 AUTH_PID=$!
-cd ..
+cd ../../..
 sleep 3
 
 if check_port 3000; then
@@ -91,10 +129,10 @@ else
 fi
 
 echo -e "\n${BLUE}Step 4: Starting Admin Service...${NC}"
-cd admin_service
-python main.py > ../logs/admin_service.log 2>&1 &
+cd backend/services/admin_service
+python main.py > ../../../logs/admin_service.log 2>&1 &
 ADMIN_PID=$!
-cd ..
+cd ../../..
 sleep 3
 
 if check_port 5000; then
@@ -106,10 +144,10 @@ else
 fi
 
 echo -e "\n${BLUE}Step 5: Starting Queue Service...${NC}"
-cd queue_service
-python main.py > ../logs/queue_service.log 2>&1 &
+cd backend/services/queue_service
+python main.py > ../../../logs/queue_service.log 2>&1 &
 QUEUE_PID=$!
-cd ..
+cd ../../..
 sleep 3
 
 if check_port 4000; then
@@ -120,10 +158,7 @@ else
     exit 1
 fi
 
-echo -e "\n${GREEN}=========================================="
-echo "     All Services Started Successfully!"
-echo "==========================================${NC}"
-
+ 
 echo -e "\n${CYAN}Service Status:${NC}"
 echo -e "  ${GREEN}✓${NC} Auth gRPC:    localhost:50051 (PID: $GRPC_PID)"
 echo -e "  ${GREEN}✓${NC} Auth REST:    localhost:3000  (PID: $AUTH_PID)"
@@ -142,7 +177,12 @@ echo -e "  ${BLUE}Queue:${NC}   http://localhost:4000"
 echo -e "  ${BLUE}Admin:${NC}   http://localhost:5000"
 
 echo -e "\n${YELLOW}To start the frontend:${NC}"
-echo -e "  cd queueflex-frontend"
+echo -e "  cd next-frontend"
+echo -e "  npm install"
+echo -e "  npm run dev"
+
+echo -e "\n${YELLOW}Or for the Java frontend:${NC}"
+echo -e "  cd frontend/queueflex-frontend"
 echo -e "  mvn clean javafx:run"
 
 echo -e "\n${YELLOW}To stop all services:${NC}"
