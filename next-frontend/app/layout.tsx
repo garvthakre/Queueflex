@@ -14,6 +14,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const metadata: Metadata = {
+  title: "Queueflex",
+  description: "Queue management and booking platform",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,9 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <div className="min-h-screen flex flex-col">
           <Header />
 
