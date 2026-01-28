@@ -1,4 +1,4 @@
-import {  queueApi } from "../api/config";
+import { queueApi } from "../api/config";
 import {
   BookingResponseData,
   BookingRequestData,
@@ -19,7 +19,7 @@ const queueService = {
   GetServices: async (): Promise<Service[]> => {
     try {
       const response = await queueApi.get<ServiceAPIResponse[]>("/services");
-      
+
       return response.data.map((service) => ({
         id: service.service_id,
         name: service.name,
@@ -34,11 +34,10 @@ const queueService = {
 
   Getqueue: async (): Promise<BookingResponseData[]> => {
     try {
-      
       const response = await queueApi.get("/queue/get");
       return response.data;
     } catch (error: any) {
-       console.error("[GetQueue] Error:", error);
+      console.error("[GetQueue] Error:", error);
       throw error || error;
     }
   },

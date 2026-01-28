@@ -46,7 +46,7 @@ const Page = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Admin Dashboard</h2>
+      <h2 className="text-2xl  bg-red-400 font-semibold">Admin Dashboard</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card text-center">
