@@ -3,20 +3,30 @@ from grpc_client import verify_token
 import requests
 import uuid
 import db
+import os
+from dotenv import load_dotenv
 from flask_cors import CORS
 
+# Load environment variables from .env file
+load_dotenv()
+
 app = Flask(__name__)
-CORS(app   , resources={r"/*": {"origins": "http://localhost:3001"}},
+
+# Configuration from environment variables
+ADMIN_PORT = int(os.getenv("ADMIN_SERVICE_PORT", "5000"))
+QUEUE_SERVICE_URL = os.getenv("QUEUE_SERVICE_URL", "http://localhost:4000")
+CORS_ORIGIN = os.getenv("CORS_ORIGIN", "http://localhost:3001")
+FLASK_ENV = os.getenv("FLASK_ENV", "development")
+
+# Configure CORS
+CORS(app, resources={r"/*": {"origins": CORS_ORIGIN}},
     supports_credentials=True)
 
- 
 # Example admin-only data
 admin_data = [
     {"id": 1, "task": "Check Queue Metrics"},
     {"id": 2, "task": "Manage Users"}
 ]
-
-QUEUE_SERVICE_URL = "http://localhost:4000"
 
 def extract_token(auth_header):
     """Extract token from Authorization header"""
@@ -547,4 +557,4 @@ def get_queue_stats():
         return jsonify({"message": f"Error fetching stats: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(port=ADMIN_PORT, debug=(FLASK_ENV == "development"))

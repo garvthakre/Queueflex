@@ -4,16 +4,28 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("./db");
 const cors = require("cors");
-const SECRET_KEY = process.env.JWT_SECRET_KEY || "my_super_secret_key_12345";
-const TOKEN_EXPIRATION_HOURS = process.env.TOKEN_EXPIRATION_HOURS || 24;
 
-console.log(`[AUTH REST] JWT Secret: ${SECRET_KEY}`);
+// Configuration from environment variables
+const AUTH_PORT = process.env.AUTH_SERVICE_PORT || 3000;
+const SECRET_KEY = process.env.JWT_SECRET_KEY;
+const TOKEN_EXPIRATION_HOURS = process.env.TOKEN_EXPIRATION_HOURS || 24;
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3001";
+const NODE_ENV = process.env.NODE_ENV || "development";
+
+// Validate required environment variables
+if (!SECRET_KEY && NODE_ENV === "production") {
+  throw new Error("JWT_SECRET_KEY environment variable is required in production");
+}
+
+if (!SECRET_KEY) {
+  console.warn("[AUTH REST] WARNING: Using default JWT secret key - set JWT_SECRET_KEY environment variable");
+}
 
 const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:3001",
+    origin: CORS_ORIGIN,
     credentials: true,
   })
 );
@@ -63,4 +75,4 @@ app.post("/login", (req, res) => {
   });
 });
 
-app.listen(3000, () => console.log("[AUTH REST] Running on port 3000"));
+app.listen(AUTH_PORT, () => console.log(`[AUTH REST] Running on port ${AUTH_PORT}`));
