@@ -2,26 +2,15 @@ from flask import Flask, request, jsonify
 from grpc_client import verify_token
 import uuid
 import requests
-import os
-from dotenv import load_dotenv
 from flask_cors import CORS
 
-# Load environment variables from .env file
-load_dotenv()
-
 app = Flask(__name__)
-
-# Configuration from environment variables
-QUEUE_PORT = int(os.getenv("QUEUE_SERVICE_PORT", "4000"))
-ADMIN_SERVICE_URL = os.getenv("ADMIN_SERVICE_URL", "http://localhost:5000")
-CORS_ORIGIN = os.getenv("CORS_ORIGIN", "http://localhost:3001")
-FLASK_ENV = os.getenv("FLASK_ENV", "development")
-
-# Configure CORS
-CORS(app, resources={r"/*": {"origins": CORS_ORIGIN}},
+CORS(app   , resources={r"/*": {"origins": "http://localhost:3001"}},
     supports_credentials=True)
-
+ 
 queue = []
+
+ADMIN_SERVICE_URL = "http://localhost:5000"
 
 def extract_token(auth_header):
     """Extract token from Authorization header"""
@@ -328,4 +317,4 @@ def recalculate_positions(service_id):
         item["position"] = idx + 1
 
 if __name__ == "__main__":
-    app.run(port=QUEUE_PORT, debug=(FLASK_ENV == "development"))
+    app.run(port=4000, debug=True)

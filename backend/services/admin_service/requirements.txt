@@ -2,5 +2,3 @@ Flask
 grpcio
 grpcio-tools
 requests
-python-dotenv
-flask-cors

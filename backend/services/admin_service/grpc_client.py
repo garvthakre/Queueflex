@@ -1,11 +1,7 @@
 import grpc
-import os
 from proto import auth_pb2, auth_pb2_grpc
 
-# Configuration from environment variables
-GRPC_SERVER_URL = os.getenv("GRPC_SERVER_URL", "localhost:50051")
-
-CHANNEL = grpc.insecure_channel(GRPC_SERVER_URL)
+CHANNEL = grpc.insecure_channel('localhost:50051')
 CLIENT = auth_pb2_grpc.AuthServiceStub(CHANNEL)
 
 def verify_token(token: str):
