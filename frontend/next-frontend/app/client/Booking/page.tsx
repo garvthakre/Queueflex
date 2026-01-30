@@ -1,100 +1,123 @@
 "use client";
 
-import { BookingResponseData } from "@/app/api/interface";
-import queueService from "@/app/services/queueservice";
 import { NextPage } from "next";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Service } from "../../api/interface";
+import queueService from "../../services/queueservice";
+import { BookingRequestData } from "@/app/api/interface";
+import { useRouter } from "next/navigation";
 
 interface Props {}
 
-const Page: NextPage<Props> = ({}) => {
-  const [queues, setQueues] = useState<BookingResponseData[]>([]);
+const Page: NextPage<Props> = () => {
+  const router = useRouter();
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [name, setName] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<{ name?: string; purpose?: string }>({});
 
   useEffect(() => {
-    const loadQueue = async () => {
+    const loadServices = async () => {
       try {
-        const response = await queueService.Getqueue();
-        setQueues(response);
-      } catch (error) {
-        console.error("Error fetching queues:", error);
-        setError("Failed to load your bookings. Please try again.");
+        setLoading(true);
+        setError(null);
+        const data = await queueService.GetServices();
+        setServices(data);
+      } catch (error: any) {
+        console.error("[GetServices] API Error", {
+          status: error.response?.status,
+          data: error.response?.data,
+          headers: error.response?.headers,
+        });
+        setError("Failed to load services. Please check your connection and try again.");
       } finally {
         setLoading(false);
       }
     };
-    loadQueue();
+
+    loadServices();
   }, []);
 
-  const getStatusColor = (status?: string) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "waiting":
-        return "bg-amber-100 text-amber-700 border-amber-200";
-      case "in_progress":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
+  const validateForm = () => {
+    const errors: { name?: string; purpose?: string } = {};
+    if (!name.trim()) errors.name = "Name is required";
+    if (!purpose.trim()) errors.purpose = "Purpose is required";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleBooking = async () => {
+    if (!selectedService || !validateForm()) return;
+
+    setBookingLoading(true);
+    setBookingSuccess(null);
+    try {
+      const payload: BookingRequestData = {
+        service_id: selectedService.id,
+        name: name.trim(),
+        purpose: purpose.trim(),
+      };
+
+      const response = await queueService.Addqueue(payload);
+      console.log("Booking success:", response);
+
+      setBookingSuccess(`Successfully booked! Your position: #${response.position}`);
+      setSelectedService(null);
+      setName("");
+      setPurpose("");
+      setFormErrors({});
+
+      // Auto-close success message after 3 seconds
+      setTimeout(() => setBookingSuccess(null), 3000);
+    } catch (err: any) {
+      console.error("[AddQueue] Failed:", err);
+      setError("Booking failed. Please try again.");
+    } finally {
+      setBookingLoading(false);
     }
   };
 
-  const getStatusIcon = (status?: string) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        );
-      case "waiting":
-        return (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case "in_progress":
-        return (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        );
-      default:
-        return (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        );
-    }
+  const handleServiceSelect = (service: Service) => {
+    setSelectedService(service);
+    setFormErrors({});
+    setError(null);
+  };
+
+  const getServiceIcon = (serviceName: string) => {
+    const name = serviceName.toLowerCase();
+    if (name.includes('bank') || name.includes('finance')) return '🏦';
+    if (name.includes('health') || name.includes('medical')) return '🏥';
+    if (name.includes('customer') || name.includes('support')) return '📞';
+    if (name.includes('registration') || name.includes('enrollment')) return '📝';
+    return '📋';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-indigo-600 border-t-transparent mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading your bookings...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading services...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error && !selectedService) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl border border-slate-100 p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Oops!</h2>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center border border-red-100">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-slate-800 mb-2">Unable to Load Services</h2>
           <p className="text-slate-600 mb-6">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200"
           >
             Try Again
           </button>
@@ -104,194 +127,211 @@ const Page: NextPage<Props> = ({}) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="text-2xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Queueflex
-              </Link>
-              <span className="hidden sm:block text-slate-400">|</span>
-              <span className="hidden sm:block text-slate-600 font-semibold">My Bookings</span>
-            </div>
-            
-            <Link href="/client/Booking">
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:scale-105">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span className="hidden sm:inline">New Booking</span>
-                <span className="sm:hidden">Book</span>
-              </button>
-            </Link>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-12">
+          <div>
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+              Book a Service
+            </h1>
+            <p className="text-slate-600 text-lg">
+              Choose from our available services and join the queue
+            </p>
           </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">
-            Your{" "}
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Bookings
-            </span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Track your queue positions and get real-time updates on your bookings.
-          </p>
+          <button
+            onClick={() => router.push("/client/Service")}
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-indigo-600 font-medium py-3 px-6 rounded-lg border border-indigo-200 hover:border-indigo-300 transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            My Queues
+          </button>
         </div>
 
-        {/* Bookings List */}
-        {queues.length === 0 ? (
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-12 text-center">
-              <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-12 h-12 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-3">No Bookings Yet</h3>
-              <p className="text-slate-600 mb-8 max-w-md mx-auto">
-                You haven't made any bookings yet. Start by booking a service to skip the wait!
-              </p>
-              <Link href="/client/Booking">
-                <button className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg shadow-indigo-200 hover:shadow-indigo-300 flex items-center gap-3 mx-auto">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Book Your First Service
-                </button>
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-6 max-w-4xl mx-auto">
-            {queues.map((queue, index) => (
-              <div
-                key={queue.queue_id}
-                className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl border border-slate-100 overflow-hidden transition-all duration-500 opacity-0 animate-[fadeInUp_0.6s_ease-out_forwards]"
-                style={{
-                  animationDelay: `${index * 100}ms`,
-                }}
-              >
-                {/* Gradient Background Effect */}
-                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                
-                <div className="relative p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    {/* Left Side - Service Info */}
-                    <div className="flex-1">
-                      <div className="flex items-start gap-4">
-                        {/* Service Icon */}
-                        <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-
-                        {/* Details */}
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
-                            {queue.name}
-                          </h3>
-                          
-                          <div className="flex flex-wrap items-center gap-3 text-sm mb-3">
-                            <div className="flex items-center gap-1.5 text-slate-600">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                              </svg>
-                              <span className="font-semibold">{queue.serviceType}</span>
-                            </div>
-                            
-                            {queue.position !== undefined && (
-                              <div className="flex items-center gap-1.5 text-slate-600">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                                </svg>
-                                <span className="font-semibold">Position: {queue.position}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {queue.purpose && (
-                            <p className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 inline-block">
-                              <span className="font-semibold text-slate-700">Purpose:</span> {queue.purpose}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Side - Status & Position */}
-                    <div className="flex flex-col items-end gap-3">
-                      {/* Status Badge */}
-                      <span className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border-2 ${getStatusColor(queue.status)}`}>
-                        {getStatusIcon(queue.status)}
-                        {queue.status || "Pending"}
-                      </span>
-
-                      {/* Queue Position (Large Display) */}
-                      {queue.position !== undefined && queue.status?.toLowerCase() === "waiting" && (
-                        <div className="text-center bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 border-2 border-indigo-100">
-                          <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">
-                            Queue Position
-                          </div>
-                          <div className="text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                            #{queue.position}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Additional Info Bar */}
-                  {queue.status?.toLowerCase() === "waiting" && (
-                    <div className="mt-6 pt-6 border-t border-slate-100">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <svg className="w-5 h-5 text-indigo-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="font-medium">You'll receive a notification when it's almost your turn</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {queue.status?.toLowerCase() === "completed" && (
-                    <div className="mt-6 pt-6 border-t border-slate-100">
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="font-semibold">Service completed successfully</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+        {/* Success Message */}
+        {bookingSuccess && (
+          <div className="mb-8 bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3 animate-fade-in">
+            <div className="text-green-500 text-xl">✅</div>
+            <p className="text-green-800 font-medium">{bookingSuccess}</p>
+            <button
+              onClick={() => setBookingSuccess(null)}
+              className="ml-auto text-green-500 hover:text-green-700"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
-        {/* Info Card */}
-        {queues.length > 0 && (
-          <div className="max-w-4xl mx-auto mt-8">
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-100 rounded-2xl p-6">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+        {/* Services Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {services.map((service, index) => (
+            <div
+              key={service.id}
+              className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-indigo-200 group overflow-hidden cursor-pointer"
+              onClick={() => handleServiceSelect(service)}
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              {/* Service Icon */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-center">
+                <div className="text-4xl mb-2">{getServiceIcon(service.name)}</div>
+                <h3 className="text-xl font-bold text-white mb-1">{service.name}</h3>
+                {service.serviceType && (
+                  <span className="inline-block bg-white/20 text-white text-xs px-2 py-1 rounded-full">
+                    {service.serviceType}
+                  </span>
+                )}
+              </div>
+
+              {/* Service Details */}
+              <div className="p-6">
+                <p className="text-slate-600 mb-4 leading-relaxed">
+                  {service.description || "Get assistance with this service"}
+                </p>
+
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-slate-500">Currently serving</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-slate-800">
+                      {service.current_queue_count ?? 0}
+                    </p>
+                    <p className="text-xs text-slate-500">in queue</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 mb-2">Stay Updated</h4>
-                  <p className="text-sm text-slate-700 leading-relaxed">
-                    We'll send you notifications when your turn is approaching. Make sure to enable notifications in your browser settings for the best experience.
-                  </p>
+
+                <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg">
+                  Book This Service
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {services.length === 0 && !loading && (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-6">📋</div>
+            <h3 className="text-2xl font-semibold text-slate-800 mb-2">No Services Available</h3>
+            <p className="text-slate-600 mb-8">There are currently no services available for booking.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
+            >
+              Refresh
+            </button>
+          </div>
+        )}
+
+        {/* Booking Modal */}
+        {selectedService && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="text-3xl">{getServiceIcon(selectedService.name)}</div>
+                    <div>
+                      <h3 className="text-xl font-bold">Book Service</h3>
+                      <p className="text-indigo-100">{selectedService.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedService(null)}
+                    className="text-white/70 hover:text-white transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <div className="mb-4 p-4 bg-slate-50 rounded-xl">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Current queue length:</span>
+                    <span className="font-semibold text-slate-800">{selectedService.current_queue_count ?? 0}</span>
+                  </div>
+                </div>
+
+                <form onSubmit={(e) => { e.preventDefault(); handleBooking(); }} className="space-y-4">
+                  {/* Name Field */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Your Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                        formErrors.name
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                          : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500'
+                      }`}
+                      required
+                    />
+                    {formErrors.name && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>
+                    )}
+                  </div>
+
+                  {/* Purpose Field */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Purpose of Visit *
+                    </label>
+                    <textarea
+                      placeholder="Briefly describe why you're visiting"
+                      value={purpose}
+                      onChange={(e) => setPurpose(e.target.value)}
+                      rows={3}
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors resize-none ${
+                        formErrors.purpose
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                          : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500'
+                      }`}
+                      required
+                    />
+                    {formErrors.purpose && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.purpose}</p>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedService(null)}
+                      className="flex-1 border border-slate-300 text-slate-700 py-3 px-4 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={bookingLoading}
+                      className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                    >
+                      {bookingLoading ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Booking...
+                        </div>
+                      ) : (
+                        'Confirm Booking'
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
