@@ -95,40 +95,21 @@ for port in "${PORTS[@]}"; do
     fi
 done
 
-echo -e "\n${BLUE}Step 2: Starting Auth Service (gRPC)...${NC}"
+echo -e "\n${BLUE}Step 2: Starting Auth Service (REST + gRPC)...${NC}"
 cd backend/services/auth_service
-node grpc_server.js > ../../../logs/grpc_server.log 2>&1 &
-GRPC_PID=$!
-cd ../../..
-sleep 3
-
-if check_port 50051; then
-    echo -e "${GREEN}✓ Auth gRPC Server started on port 50051 (PID: $GRPC_PID)${NC}"
-else
-    echo -e "${RED}✗ Failed to start Auth gRPC Server${NC}"
-    echo -e "${YELLOW}Check logs/grpc_server.log for details${NC}"
-    cat logs/grpc_server.log
-    exit 1
-fi
-
-echo -e "\n${BLUE}Step 3: Starting Auth Service (REST)...${NC}"
-cd backend/services/auth_service
-node index.js > ../../../logs/auth_rest.log 2>&1 &
+node index.js > ../../../logs/auth_service.log 2>&1 &
 AUTH_PID=$!
 cd ../../..
 sleep 3
 
-if check_port 3000; then
-    echo -e "${GREEN}✓ Auth REST Server started on port 3000 (PID: $AUTH_PID)${NC}"
+if check_port 3000 && check_port 50051; then
+    echo -e "${GREEN}✓ Auth Service started on ports 3000 (REST) and 50051 (gRPC) (PID: $AUTH_PID)${NC}"
 else
-    echo -e "${RED}✗ Failed to start Auth REST Server${NC}"
-    echo -e "${YELLOW}Check logs/auth_rest.log for details${NC}"
-    cat logs/auth_rest.log
-    kill $GRPC_PID 2>/dev/null
+    echo -e "${RED}✗ Failed to start Auth Service${NC}"
+    echo -e "${YELLOW}Check logs/auth_service.log for details${NC}"
+    cat logs/auth_service.log
     exit 1
 fi
-
-echo -e "\n${BLUE}Step 4: Starting Admin Service...${NC}"
 cd backend/services/admin_service
 python main.py > ../../../logs/admin_service.log 2>&1 &
 ADMIN_PID=$!
@@ -139,11 +120,11 @@ if check_port 5000; then
     echo -e "${GREEN}✓ Admin Service started on port 5000 (PID: $ADMIN_PID)${NC}"
 else
     echo -e "${RED}✗ Failed to start Admin Service${NC}"
-    kill $GRPC_PID $AUTH_PID
+    kill $AUTH_PID
     exit 1
 fi
 
-echo -e "\n${BLUE}Step 5: Starting Queue Service...${NC}"
+echo -e "\n${BLUE}Step 4: Starting Queue Service...${NC}"
 cd backend/services/queue_service
 python main.py > ../../../logs/queue_service.log 2>&1 &
 QUEUE_PID=$!
@@ -154,20 +135,18 @@ if check_port 4000; then
     echo -e "${GREEN}✓ Queue Service started on port 4000 (PID: $QUEUE_PID)${NC}"
 else
     echo -e "${RED}✗ Failed to start Queue Service${NC}"
-    kill $GRPC_PID $AUTH_PID $ADMIN_PID
+    kill $AUTH_PID $ADMIN_PID
     exit 1
 fi
 
  
 echo -e "\n${CYAN}Service Status:${NC}"
-echo -e "  ${GREEN}✓${NC} Auth gRPC:    localhost:50051 (PID: $GRPC_PID)"
-echo -e "  ${GREEN}✓${NC} Auth REST:    localhost:3000  (PID: $AUTH_PID)"
+echo -e "  ${GREEN}✓${NC} Auth Service:  localhost:3000 (REST) & localhost:50051 (gRPC) (PID: $AUTH_PID)"
 echo -e "  ${GREEN}✓${NC} Admin Service: localhost:5000  (PID: $ADMIN_PID)"
 echo -e "  ${GREEN}✓${NC} Queue Service: localhost:4000  (PID: $QUEUE_PID)"
 
 echo -e "\n${CYAN}Logs Location:${NC}"
-echo -e "  logs/grpc_server.log"
-echo -e "  logs/auth_rest.log"
+echo -e "  logs/auth_service.log"
 echo -e "  logs/admin_service.log"
 echo -e "  logs/queue_service.log"
 
@@ -189,8 +168,7 @@ echo -e "\n${YELLOW}To stop all services:${NC}"
 echo -e "  Press ${RED}Ctrl+C${YELLOW} or run: ${RED}./stop_all.sh${NC}"
 
 echo -e "\n${YELLOW}To view logs in real-time:${NC}"
-echo -e "  tail -f logs/grpc_server.log"
-echo -e "  tail -f logs/auth_rest.log"
+echo -e "  tail -f logs/auth_service.log"
 echo -e "  tail -f logs/admin_service.log"
 echo -e "  tail -f logs/queue_service.log"
 
