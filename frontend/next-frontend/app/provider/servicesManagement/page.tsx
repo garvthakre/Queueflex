@@ -239,7 +239,7 @@ const Page = () => {
                     </button>
 
                     <button
-                      onClick={() => toggleStatus(service.service_id, service.status)}
+                      onClick={() => toggleStatus(service.service_id, service.status ||'inactive')}
                       className={`flex-1 px-4 py-2 font-semibold rounded-lg transition-all duration-300 text-sm flex items-center justify-center gap-2 ${
                         service.status === "active"
                           ? "bg-amber-100 hover:bg-amber-200 text-amber-700"
