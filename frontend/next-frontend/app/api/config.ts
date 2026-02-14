@@ -1,35 +1,28 @@
- 
-import axios, { AxiosInstance } from "axios";
+'use client';
 
-// Helper to get base URL - works both server and client side
-const getBaseURL = (envKey: string, defaultPort: string) => {
-  // Check if we're in browser
-  if (typeof window !== 'undefined') {
-    // Client-side: use NEXT_PUBLIC_ variables
-    const url = process.env[`NEXT_PUBLIC_${envKey}_SERVICE_URL`];
-    if (url) {
-      console.log(`[${envKey}] Using client URL:`, url);
-      return url;
-    }
-  }
-  
-  // Server-side or fallback to localhost
-  const fallback = `http://localhost:${defaultPort}`;
-  console.log(`[${envKey}] Using fallback URL:`, fallback);
-  return fallback;
-};
+import axios, { AxiosInstance } from "axios";
+ 
+const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || 'http://localhost:3000';
+const ADMIN_SERVICE_URL = process.env.NEXT_PUBLIC_ADMIN_SERVICE_URL || 'http://localhost:5000';
+const QUEUE_SERVICE_URL = process.env.NEXT_PUBLIC_QUEUE_SERVICE_URL || 'http://localhost:4000';
+
+// Debug logging
+console.log(' API Configuration Loaded:');
+console.log('  Auth Service:', AUTH_SERVICE_URL);
+console.log('  Admin Service:', ADMIN_SERVICE_URL);
+console.log('  Queue Service:', QUEUE_SERVICE_URL);
 
 // Auth service
 export const authApi = axios.create({
-  baseURL: getBaseURL('AUTH', '3000'),
+  baseURL: AUTH_SERVICE_URL,
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
-  timeout: 30000, // 30 second timeout
+  timeout: 30000,
 });
 
 // Queue service
 export const queueApi = axios.create({
-  baseURL: getBaseURL('QUEUE', '4000'),
+  baseURL: QUEUE_SERVICE_URL,
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
   timeout: 30000,
@@ -37,7 +30,7 @@ export const queueApi = axios.create({
 
 // Admin service
 export const AdminApi = axios.create({
-  baseURL: getBaseURL('ADMIN', '5000'),
+  baseURL: ADMIN_SERVICE_URL,
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
   timeout: 30000,
@@ -47,14 +40,10 @@ export const AdminApi = axios.create({
 function attachAuthInterceptor(api: AxiosInstance) {
   api.interceptors.request.use(
     (config) => {
-      // Only access localStorage in browser
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem("token");
-        console.log(`[Interceptor ${api.defaults.baseURL}] Token:`, token ? 'present' : 'missing');
-
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+      const token = localStorage.getItem("token");
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
 
       return config;
@@ -67,9 +56,9 @@ function attachAuthInterceptor(api: AxiosInstance) {
     (response) => response,
     (error) => {
       if (error.response) {
-        console.error(`[API Error ${error.config.url}]`, error.response.status, error.response.data);
+        console.error(`[API Error ${error.config?.url}]`, error.response.status, error.response.data);
       } else if (error.request) {
-        console.error(`[Network Error ${error.config.url}]`, 'No response received');
+        console.error(`[Network Error ${error.config?.url}]`, 'No response received');
       } else {
         console.error(`[Request Error]`, error.message);
       }
@@ -82,11 +71,3 @@ function attachAuthInterceptor(api: AxiosInstance) {
 attachAuthInterceptor(authApi);
 attachAuthInterceptor(queueApi);
 attachAuthInterceptor(AdminApi);
-
-// Log configuration on initialization
-if (typeof window !== 'undefined') {
-  console.log(' API Configuration:');
-  console.log('   Auth API:', authApi.defaults.baseURL);
-  console.log('   Queue API:', queueApi.defaults.baseURL);
-  console.log('   Admin API:', AdminApi.defaults.baseURL);
-}
