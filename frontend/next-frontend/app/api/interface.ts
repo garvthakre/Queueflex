@@ -43,6 +43,8 @@ export interface Service {
   description?: string;
   serviceType?: string;
   current_queue_count?: number;
+  service_id: number ;
+  status?: string;
 }
 export interface ServiceAPIResponse {
   service_id: number
