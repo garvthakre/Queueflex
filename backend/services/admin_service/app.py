@@ -1,13 +1,36 @@
+ 
+import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 from routes import register_routes
 
+# Load environment variables
+load_dotenv()
+
 app = Flask(__name__)
-CORS(app   , resources={r"/*": {"origins": "http://localhost:3001"}},
-    supports_credentials=True)
+
+# Get CORS origins from environment
+cors_origins = os.environ.get('CORS_ORIGIN', '*')
+if cors_origins != '*':
+    cors_origins = [origin.strip() for origin in cors_origins.split(',')]
+
+print(f" Starting Admin Service")
+print(f"   Environment: {os.environ.get('FLASK_ENV', 'development')}")
+print(f"   Port: {os.environ.get('PORT', '5000')}")
+print(f"   CORS Origins: {cors_origins}")
+
+CORS(app, resources={
+    r"/*": {
+        "origins": cors_origins,
+        "supports_credentials": True
+    }
+})
 
 # Register all routes
 register_routes(app)
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    app.run(host='0.0.0.0', port=port, debug=debug)
