@@ -3,3 +3,4 @@ grpcio
 grpcio-tools
 requests
 python-dotenv
+flask_cors
