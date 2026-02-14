@@ -1,4 +1,8 @@
+ 
+Flask
 grpcio
 grpcio-tools
-Flask
 requests
+python-dotenv
+flask-cors
+gunicorn
