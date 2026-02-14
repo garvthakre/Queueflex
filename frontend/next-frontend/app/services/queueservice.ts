@@ -22,6 +22,7 @@ const queueService = {
 
       return response.data.map((service) => ({
         id: service.service_id,
+        service_id: service.service_id,
         name: service.name,
         description: service.description,
         serviceType: service.serviceType,
