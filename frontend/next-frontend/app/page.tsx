@@ -119,25 +119,7 @@ export default function Home() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6 max-w-2xl mx-auto mb-12">
-              {[
-                { number: "50K+", label: "Happy Users" },
-                { number: "2M+", label: "Customers Served" },
-                { number: "99.9%", label: "System Uptime" },
-              ].map((stat, i) => (
-                <div
-                  key={i}
-                  className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div className="text-3xl font-black bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-1">
-                    {stat.number}
-                  </div>
-                  <div className="text-slate-600 text-xs font-semibold">
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </div>
+             
 
             {/* Hero Image/Showcase */}
             <div className="relative max-w-4xl mx-auto">

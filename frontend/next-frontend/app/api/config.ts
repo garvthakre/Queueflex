@@ -16,7 +16,7 @@ console.log('  Queue Service:', QUEUE_SERVICE_URL);
 export const authApi = axios.create({
   baseURL: AUTH_SERVICE_URL,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true,
+  //withCredentials: true,
   timeout: 30000,
 });
 
@@ -24,7 +24,7 @@ export const authApi = axios.create({
 export const queueApi = axios.create({
   baseURL: QUEUE_SERVICE_URL,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true,
+  // withCredentials: true,
   timeout: 30000,
 });
 
@@ -32,7 +32,7 @@ export const queueApi = axios.create({
 export const AdminApi = axios.create({
   baseURL: ADMIN_SERVICE_URL,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true,
+  //withCredentials: true,
   timeout: 30000,
 });
 
