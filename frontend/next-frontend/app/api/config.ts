@@ -29,7 +29,7 @@ export const queueApi = axios.create({
 });
 
 // Admin service
-export const AdminApi = axios.create({
+export const adminApi = axios.create({
   baseURL: ADMIN_SERVICE_URL,
   headers: { "Content-Type": "application/json" },
   //withCredentials: true,
@@ -70,4 +70,4 @@ function attachAuthInterceptor(api: AxiosInstance) {
 // Attach to all backend APIs
 attachAuthInterceptor(authApi);
 attachAuthInterceptor(queueApi);
-attachAuthInterceptor(AdminApi);
+attachAuthInterceptor(adminApi);
