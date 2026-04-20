@@ -1,8 +1,11 @@
-from flask import jsonify
+from flask import Blueprint,request, jsonify
 from auth import authenticate_request
 from services.admin_service_client import get_services_from_admin, get_service_by_id_from_admin
 from services.queue_service import get_queue_count_for_service
 
+service_bp = Blueprint('service', __name__)
+
+@service_bp.route("/services", methods=["GET"])
 def get_available_services():
     """Get all available services (public - requires authentication)"""
     auth_response, error = authenticate_request()
@@ -25,6 +28,8 @@ def get_available_services():
         print(f"[QUEUE] Error fetching services: {str(e)}")
         return jsonify({"message": f"Error fetching services: {str(e)}"}), 500
 
+
+@service_bp.route("/services/<service_id>", methods=["GET"])
 def get_service_by_id(service_id):
     """Get a specific service by ID"""
     auth_response, error = authenticate_request()
