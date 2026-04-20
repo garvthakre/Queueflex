@@ -1,6 +1,5 @@
 import requests
-
-ADMIN_SERVICE_URL = "http://localhost:5000"
+from config.config import ADMIN_SERVICE_URL
 
 def get_services_from_admin(auth_header):
     """Fetch services from admin service using public endpoint"""
