@@ -2,7 +2,7 @@
 import { NextPage } from "next";
 import React from "react";
 import { loginData } from "../../api/interface";
-import authService from "@/app/services/Authservices";
+import authService from "@/app/services/authservice";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
