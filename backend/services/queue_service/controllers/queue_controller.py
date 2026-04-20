@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import Blueprint, request, jsonify   # add Blueprint here
 import uuid
 from auth import authenticate_request
 from services.admin_service_client import get_service_by_id_from_admin
@@ -8,6 +8,10 @@ from services.queue_service import (
     update_queue_item, remove_queue_item, recalculate_positions
 )
 
+queue_bp = Blueprint('queue', __name__)
+
+
+@queue_bp.route("/queue/add", methods=["POST"])
 def add_to_queue():
     """Add a new item to the queue for a specific service"""
     auth_response, error = authenticate_request()
@@ -60,6 +64,7 @@ def add_to_queue():
     print(f"[QUEUE] Added item: {queue_id} for user {auth_response.user_id} to service {data.get('service_id')}, position {position}")
     return jsonify(item), 201
 
+@queue_bp.route("/queue/get", methods=["GET"])
 def get_queue():
     """Get all queue items or user-specific items"""
     auth_response, error = authenticate_request()
@@ -77,6 +82,7 @@ def get_queue():
 
     return jsonify(result), 200
 
+@queue_bp.route("/queue/service/<service_id>", methods=["GET"])
 def get_queue_by_service(service_id):
     """Get queue items for a specific service"""
     auth_response, error = authenticate_request()
@@ -88,6 +94,7 @@ def get_queue_by_service(service_id):
     print(f"[QUEUE] Fetched {len(service_queue)} items for service {service_id}")
     return jsonify(service_queue), 200
 
+@queue_bp.route("/queue/get/<queue_id>", methods=["GET"])
 def get_queue_by_id(queue_id):
     """Get a specific queue item by ID"""
     auth_response, error = authenticate_request()
@@ -106,6 +113,7 @@ def get_queue_by_id(queue_id):
     print(f"[QUEUE] Fetched item: {queue_id}")
     return jsonify(item), 200
 
+@queue_bp.route("/queue/update/<queue_id>", methods=["PUT"])
 def update_queue(queue_id):
     """Update a queue item"""
     auth_response, error = authenticate_request()
@@ -146,6 +154,7 @@ def update_queue(queue_id):
     print(f"[QUEUE] Updated item: {queue_id}")
     return jsonify(updated_item), 200
 
+@queue_bp.route("/queue/delete/<queue_id>", methods=["DELETE"])
 def delete_queue(queue_id):
     """Delete a queue item"""
     auth_response, error = authenticate_request()
