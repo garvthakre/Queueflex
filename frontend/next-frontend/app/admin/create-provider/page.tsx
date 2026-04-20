@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import authService from "../../services/Authservices";
+import authService from "../../services/authservice";
 import Link from "next/link";
 
 const Page = () => {
