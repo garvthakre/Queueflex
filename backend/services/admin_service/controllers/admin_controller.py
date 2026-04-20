@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 import uuid
 import db.db as db
 from auth import verify_admin
+from config.config import QUEUE_SERVICE_URL
 import requests
 
 admin_bp = Blueprint('admin', __name__)
@@ -12,7 +13,7 @@ admin_data = [
     {"id": 2, "task": "Manage Users"}
 ]
 
-QUEUE_SERVICE_URL = "http://localhost:4000"
+ 
 
 @admin_bp.route("/admin/services", methods=["POST"])
 def create_service():
