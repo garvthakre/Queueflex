@@ -2,11 +2,12 @@ from flask import Blueprint, request, jsonify
 import uuid
 import db.db as db
 from auth import verify_user
+from config.config import QUEUE_SERVICE_URL
 import requests
 
 provider_bp = Blueprint('provider', __name__)
 
-QUEUE_SERVICE_URL = "http://localhost:4000"
+ 
 
 @provider_bp.route("/provider/services", methods=["GET"])
 def get_provider_services():
