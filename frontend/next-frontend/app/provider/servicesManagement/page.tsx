@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { AdminApi } from "../../api/config";
+import adminService from "../../services/adminservice";
 import { Service } from "../../api/interface";
 
 const Page = () => {
@@ -25,7 +25,7 @@ const Page = () => {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const res = await AdminApi.get("/provider/services");
+      const res = await adminService.getProviderServices()
       const all = res.data || [];
       setServices(all);
     } catch (err) {
@@ -43,7 +43,7 @@ const Page = () => {
   const toggleStatus = async (id: number, currentStatus: string) => {
     const nextStatus = currentStatus === "active" ? "inactive" : "active";
     try {
-      await AdminApi.put(`/provider/services/${id}`, { status: nextStatus });
+      await adminService.updateService(String(id), { status: nextStatus })
       fetchServices();
     } catch (err) {
       console.error("[Services] toggleStatus error:", err);
@@ -54,7 +54,7 @@ const Page = () => {
   const deleteService = async (id: number) => {
     if (!confirm("Delete this service? This action cannot be undone.")) return;
     try {
-      await AdminApi.delete(`/provider/services/${id}`);
+      await adminService.deleteService(String(id))
       fetchServices();
     } catch (err) {
       console.error("[Services] deleteService error:", err);
@@ -74,7 +74,7 @@ const Page = () => {
     if (!editingService) return;
 
     try {
-      await AdminApi.put(`/provider/services/${editingService.service_id}`, {
+      await adminService.updateService(String(editingService.service_id), {
         name: editName,
         description: editDescription,
         serviceType: editServiceType,
@@ -94,7 +94,7 @@ const Page = () => {
     }
 
     try {
-      await AdminApi.post("/provider/services", {
+      await adminService.createService({
         name: newName,
         description: newDescription,
         serviceType: newServiceType,
