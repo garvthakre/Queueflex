@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { AdminApi, queueApi } from "../../api/config";
+import { adminApi, queueApi } from "../../api/config";
 import { ServiceAPIResponse } from "../../api/interface";
 
 interface Stats {
@@ -19,7 +19,7 @@ const Page = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const res = await AdminApi.get("/admin/queue/stats");
+      const res = await adminApi.get("/admin/queue/stats");
       setStats(res.data);
     } catch (err) {
       console.error("[Admin Dashboard] fetchStats error:", err);
