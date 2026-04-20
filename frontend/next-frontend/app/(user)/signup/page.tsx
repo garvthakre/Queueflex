@@ -3,7 +3,7 @@
 import { NextPage } from "next";
 import React, { useState } from "react";
 import { SignupFormData } from "../../api/interface";
-import authService from "../../services/Authservices";
+import authService from "../../services/authservice";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
