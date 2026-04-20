@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { AdminApi } from "../../api/config";
 import { BookingResponseData } from "../../api/interface";
+import adminService from "../../services/adminservice";
 
 const Page = () => {
   const [items, setItems] = useState<BookingResponseData[]>([]);
@@ -15,16 +15,16 @@ const Page = () => {
     setLoading(true);
     try {
       // fetch provider's services to filter queues
-      const servicesRes = await AdminApi.get("/provider/services");
-      const allServices = servicesRes.data || [];
+      const servicesRes = await adminService.getProviderServices();
+      const allServices = servicesRes || [];
       const userId = Number(localStorage.getItem("user_id") || 0);
       const myServiceIds = allServices
         .filter((s: any) => Number(s.created_by) === userId)
         .map((s: any) => String(s.service_id));
 
       // provider-specific endpoint returns only queues for provider services
-      const res = await AdminApi.get("/provider/queue/all");
-      const allQueues = res.data || [];
+      const res = await adminService.getProviderQueues();
+      const allQueues = res || [];
       setItems(allQueues);
     } catch (err) {
       console.error("[Queues] fetchQueues error:", err);
@@ -39,7 +39,7 @@ const Page = () => {
 
   const updateStatus = async (queue_id: string, status: string) => {
     try {
-      await AdminApi.put(`/provider/queue/${queue_id}`, { status });
+      await adminService.updateQueueStatus(queue_id, status);
       fetchQueues();
     } catch (err) {
       console.error("[Queues] updateStatus error:", err);
@@ -49,7 +49,7 @@ const Page = () => {
   const deleteItem = async (queue_id: string) => {
     if (!confirm("Delete this queue item?")) return;
     try {
-      await AdminApi.delete(`/provider/queue/${queue_id}`);
+      await adminService.deleteQueue(queue_id);
       fetchQueues();
     } catch (err) {
       console.error("[Queues] deleteItem error:", err);
