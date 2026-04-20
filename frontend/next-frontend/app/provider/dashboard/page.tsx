@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { AdminApi, queueApi } from "../../api/config";
+import { queueApi } from "../../api/config";
 import { ServiceAPIResponse } from "../../api/interface";
-
+import adminService from "@/app/services/adminservice";
 interface Stats {
   total_items: number;
   waiting: number;
@@ -19,8 +19,8 @@ const Page = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const res = await AdminApi.get("/admin/queue/stats");
-      setStats(res.data);
+      const res = await adminService.getQueueStats();
+      setStats(res);
     } catch (err) {
       console.error("[Provider Dashboard] fetchStats error:", err);
     } finally {
