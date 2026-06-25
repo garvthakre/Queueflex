@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const db = require("../db/db");
+const { pool } = require("../db/db");
 const config = require("../config/config");
 
 class AuthService {
@@ -10,67 +10,51 @@ class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const adminFlag = is_admin ? 1 : 0; // Convert boolean to integer for SQLite
+    const adminFlag = !!is_admin;
 
-    return new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO users (name, email, password_hash, is_admin) VALUES (?, ?, ?, ?)`,
-        [name, email, passwordHash, adminFlag],
-        function (err) {
-          if (err) {
-            reject(new Error("Email already registered"));
-            return;
-          }
-          resolve({
-            user_id: this.lastID,
-            message: "User registered successfully",
-            is_admin: !!is_admin,
-          });
-        },
-      );
-    });
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password_hash, is_admin)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [name, email, passwordHash, adminFlag]
+    );
+
+    return {
+      user_id: result.rows[0].id,
+      message: "User registered successfully",
+      is_admin: adminFlag,
+    };
   }
 
   async login(email, password) {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT * FROM users WHERE email = ?`,
-        [email],
-        async (err, row) => {
-          if (err) {
-            reject(new Error("Database error"));
-            return;
-          }
+    const result = await pool.query(
+      `SELECT * FROM users WHERE email = $1`,
+      [email]
+    );
 
-          if (!row) {
-            reject(new Error("User not found"));
-            return;
-          }
+    if (result.rows.length === 0) {
+      throw new Error("User not found");
+    }
 
-          const valid = await bcrypt.compare(password, row.password_hash);
-          if (!valid) {
-            reject(new Error("Incorrect password"));
-            return;
-          }
+    const row = result.rows[0];
+    const valid = await bcrypt.compare(password, row.password_hash);
 
-          const token = jwt.sign(
-            { user_id: row.id, is_admin: !!row.is_admin },
-            config.JWT_SECRET_KEY,
-            { expiresIn: `${config.TOKEN_EXPIRATION_HOURS}h` },
-          );
+    if (!valid) {
+      throw new Error("Incorrect password");
+    }
 
-          console.log(
-            `[AUTH SERVICE] ✓ Login: User ${row.id}, Admin: ${!!row.is_admin}`,
-          );
+    const token = jwt.sign(
+      { user_id: row.id, is_admin: row.is_admin },
+      config.JWT_SECRET_KEY,
+      { expiresIn: `${config.TOKEN_EXPIRATION_HOURS}h` }
+    );
 
-          resolve({
-            token,
-            user_id: row.id,
-            admin: !!row.is_admin,
-          });
-        },
-      );
-    });
+    console.log(`[AUTH SERVICE] ✓ Login: User ${row.id}, Admin: ${row.is_admin}`);
+
+    return {
+      token,
+      user_id: row.id,
+      admin: row.is_admin,
+    };
   }
 
   verifyToken(token) {
