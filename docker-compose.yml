@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: queueflex_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - queueflex_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth_service:
+    build: ./backend/services/auth_service
+    container_name: queueflex_auth
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/queueflex_auth
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      PORT: 3000
+      GRPC_PORT: 0.0.0.0:50051
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      NODE_ENV: ${NODE_ENV}
+    ports:
+      - "3000:3000"
+      - "50051:50051"
+    networks:
+      - queueflex_network
+
+  admin_service:
+    build: ./backend/services/admin_service
+    container_name: queueflex_admin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/queueflex_admin
+      PORT: 5000
+      FLASK_ENV: ${FLASK_ENV}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      AUTH_GRPC_HOST: auth_service:50051
+      QUEUE_SERVICE_URL: http://queue_service:4000
+    ports:
+      - "5000:5000"
+    networks:
+      - queueflex_network
+
+  queue_service:
+    build: ./backend/services/queue_service
+    container_name: queueflex_queue
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/queueflex_queue
+      PORT: 4000
+      FLASK_ENV: ${FLASK_ENV}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      AUTH_GRPC_HOST: auth_service:50051
+      ADMIN_SERVICE_URL: http://admin_service:5000
+    ports:
+      - "4000:4000"
+    networks:
+      - queueflex_network
+
+
+volumes:
+  postgres_data:
+
+networks:
+  queueflex_network:
+    driver: bridge
