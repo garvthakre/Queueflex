@@ -1,17 +1,19 @@
-const sqlite3 = require("sqlite3").verbose();
-const path = require("path");
+const { Pool } = require("pg");
+const config = require("../config/config");
 
-const dbPath = path.resolve(__dirname, "../auth.db");
-const db = new sqlite3.Database(dbPath);
+const pool = new Pool({ connectionString: config.DATABASE_URL });
 
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    email TEXT UNIQUE,
-    password_hash TEXT,
-    is_admin INTEGER DEFAULT 0
-  )`);
-});
+const initDB = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name TEXT,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      is_admin BOOLEAN DEFAULT FALSE
+    )
+  `);
+  console.log("[DB] Users table initialized");
+};
 
-module.exports = db;
+module.exports = { pool, initDB };
