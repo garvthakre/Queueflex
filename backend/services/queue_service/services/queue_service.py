@@ -1,57 +1,145 @@
-# Queue data structure (in-memory for now)
-queue = []
+import psycopg2
+import psycopg2.extras
+from contextlib import contextmanager
+from config.config import DATABASE_URL
+
+@contextmanager
+def get_db():
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = False
+    try:
+        yield conn
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+def init_db():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS queue_items (
+                queue_id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                service_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                purpose TEXT,
+                serviceType TEXT,
+                position INTEGER,
+                status TEXT DEFAULT 'waiting',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        print("[DB] Queue items table initialized")
 
 def recalculate_positions(service_id):
-    """Recalculate queue positions for a specific service"""
     if not service_id:
         return
-
-    service_queue = [q for q in queue if q.get("service_id") == service_id and q.get("status") == "waiting"]
-    service_queue.sort(key=lambda x: queue.index(x))  # Maintain insertion order
-
-    for idx, item in enumerate(service_queue):
-        item["position"] = idx + 1
+    with get_db() as conn:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute('''
+            SELECT queue_id FROM queue_items
+            WHERE service_id = %s AND status = 'waiting'
+            ORDER BY created_at ASC
+        ''', (service_id,))
+        rows = cursor.fetchall()
+        for idx, row in enumerate(rows):
+            cursor.execute(
+                'UPDATE queue_items SET position = %s WHERE queue_id = %s',
+                (idx + 1, row['queue_id'])
+            )
 
 def get_queue_count_for_service(service_id):
-    """Get current queue count for a service"""
-    return len([q for q in queue if q.get("service_id") == service_id and q.get("status") == "waiting"])
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) FROM queue_items
+            WHERE service_id = %s AND status = 'waiting'
+        ''', (service_id,))
+        return cursor.fetchone()[0]
 
 def add_queue_item(item):
-    """Add a new item to the queue"""
-    queue.append(item)
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO queue_items (
+                queue_id, user_id, service_id, name,
+                purpose, serviceType, position, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (
+            item['queue_id'],
+            item['user_id'],
+            item['service_id'],
+            item['name'],
+            item['purpose'],
+            item['serviceType'],
+            item['position'],
+            item['status']
+        ))
 
 def get_all_queue_items():
-    """Get all queue items"""
-    return queue
+    with get_db() as conn:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute('SELECT * FROM queue_items ORDER BY created_at ASC')
+        return [dict(row) for row in cursor.fetchall()]
 
 def get_user_queue_items(user_id):
-    """Get queue items for a specific user"""
-    return [item for item in queue if item.get("user_id") == user_id]
+    with get_db() as conn:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute(
+            'SELECT * FROM queue_items WHERE user_id = %s ORDER BY created_at ASC',
+            (user_id,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
 
 def get_service_queue_items(service_id, include_all_statuses=False):
-    """Get queue items for a specific service"""
-    service_queue = [q for q in queue if q.get("service_id") == service_id]
-
-    if not include_all_statuses:
-        service_queue = [q for q in service_queue if q.get("status") == "waiting"]
-
-    return service_queue
+    with get_db() as conn:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if include_all_statuses:
+            cursor.execute(
+                'SELECT * FROM queue_items WHERE service_id = %s ORDER BY created_at ASC',
+                (service_id,)
+            )
+        else:
+            cursor.execute('''
+                SELECT * FROM queue_items
+                WHERE service_id = %s AND status = 'waiting'
+                ORDER BY created_at ASC
+            ''', (service_id,))
+        return [dict(row) for row in cursor.fetchall()]
 
 def get_queue_item_by_id(queue_id):
-    """Get a specific queue item by ID"""
-    return next((q for q in queue if q["queue_id"] == queue_id), None)
+    with get_db() as conn:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute(
+            'SELECT * FROM queue_items WHERE queue_id = %s',
+            (queue_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
 
 def update_queue_item(queue_id, updates):
-    """Update a queue item"""
-    item = get_queue_item_by_id(queue_id)
-    if item:
-        item.update(updates)
-        return item
-    return None
+    if not updates:
+        return get_queue_item_by_id(queue_id)
+
+    set_clause = ', '.join([f"{key} = %s" for key in updates.keys()])
+    values = list(updates.values()) + [queue_id]
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f'UPDATE queue_items SET {set_clause} WHERE queue_id = %s',
+            values
+        )
+    return get_queue_item_by_id(queue_id)
 
 def remove_queue_item(item):
-    """Remove a queue item from the queue"""
-    if item in queue:
-        queue.remove(item)
-        return True
-    return False
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            'DELETE FROM queue_items WHERE queue_id = %s',
+            (item['queue_id'],)
+        )
+        return cursor.rowcount > 0
