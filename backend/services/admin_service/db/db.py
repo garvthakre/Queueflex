@@ -1,13 +1,12 @@
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from contextlib import contextmanager
-
-DB_PATH = "admin.db"
+from config.config import DATABASE_URL
 
 @contextmanager
 def get_db():
-    """Context manager for database connections"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = False
     try:
         yield conn
         conn.commit()
@@ -18,7 +17,6 @@ def get_db():
         conn.close()
 
 def init_db():
-    """Initialize the database with services table"""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute('''
@@ -37,14 +35,13 @@ def init_db():
         print("[DB] Services table initialized")
 
 def create_service(service):
-    """Create a new service"""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO services (
-                service_id, name, description, category, 
+                service_id, name, description, category,
                 max_capacity, estimated_time_per_person, status, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', (
             service['service_id'],
             service['name'],
@@ -58,52 +55,39 @@ def create_service(service):
         return service
 
 def get_all_services():
-    """Get all services"""
     with get_db() as conn:
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute('SELECT * FROM services ORDER BY created_at DESC')
-        rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) for row in cursor.fetchall()]
 
 def get_service_by_id(service_id):
-    """Get a specific service by ID"""
     with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM services WHERE service_id = ?', (service_id,))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute('SELECT * FROM services WHERE service_id = %s', (service_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
 
 def update_service(service_id, updates):
-    """Update a service"""
     if not updates:
         return get_service_by_id(service_id)
-    
-    set_clause = ', '.join([f"{key} = ?" for key in updates.keys()])
+
+    set_clause = ', '.join([f"{key} = %s" for key in updates.keys()])
     values = list(updates.values()) + [service_id]
-    
+
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute(f'''
-            UPDATE services 
-            SET {set_clause}
-            WHERE service_id = ?
-        ''', values)
-        
+        cursor.execute(
+            f'UPDATE services SET {set_clause} WHERE service_id = %s',
+            values
+        )
         if cursor.rowcount == 0:
             raise Exception("Service not found")
-        
         return get_service_by_id(service_id)
 
 def delete_service(service_id):
-    """Delete a service"""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('DELETE FROM services WHERE service_id = ?', (service_id,))
-        
+        cursor.execute('DELETE FROM services WHERE service_id = %s', (service_id,))
         if cursor.rowcount == 0:
             raise Exception("Service not found")
-        
         return True
-
-# Initialize database on module import
-init_db()
