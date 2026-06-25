@@ -4,6 +4,7 @@ from flask import Flask
 from flask_cors import CORS
 from routes import register_routes
 from config.config import PORT, FLASK_ENV, CORS_ORIGIN
+from db.db import init_db
 
 load_dotenv()
 
@@ -26,6 +27,7 @@ CORS(app, resources={
 })
 
 register_routes(app)
+init_db()
 
 if __name__ == "__main__":
     debug = FLASK_ENV != 'production'
